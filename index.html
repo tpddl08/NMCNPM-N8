@@ -1,42 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hệ thống đăng ký học phần</title>
+  <meta name="description" content="Thiết kế giao diện hệ thống đăng ký học phần - Nhóm 8 - Nhập môn Công nghệ phần mềm">
+  <title>Đăng nhập · Hệ thống đăng ký học phần</title>
   <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="">
-  <link rel="stylesheet" href="">
-  
 </head>
 <body>
-  <div class="sidebar">
-    <h2>Hệ thống đăng ký học phần</h2>
-    <div class="menu-items">
-      <button class="tab-btn" onclick="openTab(event, 'TaiKhoan')">Tài khoản</button>
-      <button class="tab-btn" onclick="openTab(event, 'DangKyHocPhan')">Học phần</button>
-      <button class="tab-btn" onclick="openTab(event, 'DangKyGhiDanh')">Ghi danh</button>
-      <button class="tab-btn" onclick="openTab(event, 'ThoiKhoaBieu')">Thời khóa biểu</button>
-      <button class="tab-btn" onclick="openTab(event, 'ChuongTrinhDaoTao')">Chương trình đào tạo</button>
-      <button class="tab-btn" onclick="openTab(event, 'LichSuThaoTac')">Lịch sử thao tác</button>
-    </div>
-  </div>
+  <div class="shell shell-login" id="shell-login">
+    <div class="login-wrap">
+      
 
-  <main class="main-content">
-    <section id="DangKyHocPhan" class="tab-content active">
-      <div class="">
-        <h3>Đăng ký học phần</h3>
-        <div class="">
-          
+      <div class="login-form">
+        <h1>Hệ thống đăng ký học phần</h1>
+        <h2>Đăng nhập</h2>
+
+        
+        <div class="field">
+          <label class="label" for="login-user">Tên đăng nhập</label>
+          <input class="input" id="login-user" name="username" type="text" placeholder="vd: 600023" autocomplete="username">
         </div>
 
-        <div class="">
-          
+        <div class="field">
+          <label class="label" for="login-pass">Mật khẩu</label>
+          <input class="input" id="login-pass" name="password" type="password" placeholder="Tối thiểu 8 ký tự" autocomplete="current-password">
+        </div>
+
+        <label class="check">
+          <input type="checkbox" name="remember">
+          <span>Ghi nhớ đăng nhập trên máy này</span>
+        </label>
+
+        <div class="login-actions">
+          <a class="btn btn-primary" href="html/sv-dangky.html">Đăng nhập</a>
+          <a class="btn btn-ghost" href="html/pdt-lop.html">Vào trang Phòng đào tạo</a>
+        </div>
+
+        <div class="login-links">
+          <a href="#" data-confirm="Hệ thống gửi yêu cầu đặt lại mật khẩu về email của tài khoản. Bạn chưa nhập đúng thông tin thì hệ thống vẫn chỉ báo lỗi chung.">Quên mật khẩu?</a>
+          <span class="hint">Sai thông tin sẽ báo lỗi chung, không nêu rõ trường nào sai.</span>
+        </div>
+
       </div>
-    </section>
-  </main>
-<script src=""> </script>
-<script src=""> </script>
-<script src=""> </script>
+
+    </div>
+  </div>
+  <script src="js/main.js"></script>
 </body>
 </html>
