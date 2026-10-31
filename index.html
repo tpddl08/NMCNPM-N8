@@ -3,49 +3,63 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Thiết kế giao diện hệ thống đăng ký học phần - Nhóm 8 - Nhập môn Công nghệ phần mềm">
-  <title>Đăng nhập · Hệ thống đăng ký học phần</title>
+  <meta name="description" content="Website đăng ký học phần cho sinh viên">
+  <title>Website Đăng ký học phần</title>
   <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
-  <div class="shell shell-login" id="shell-login">
-    <div class="login-wrap">
-      
-
-      <div class="login-form">
-        <h1>Hệ thống đăng ký học phần</h1>
-        <h2>Đăng nhập</h2>
-
-        
-        <div class="field">
-          <label class="label" for="login-user">Tên đăng nhập</label>
-          <input class="input" id="login-user" name="username" type="text" placeholder="vd: 600023" autocomplete="username">
-        </div>
-
-        <div class="field">
-          <label class="label" for="login-pass">Mật khẩu</label>
-          <input class="input" id="login-pass" name="password" type="password" placeholder="Tối thiểu 8 ký tự" autocomplete="current-password">
-        </div>
-
-        <label class="check">
-          <input type="checkbox" name="remember">
-          <span>Ghi nhớ đăng nhập trên máy này</span>
-        </label>
-
-        <div class="login-actions">
-          <a class="btn btn-primary" href="html/sv-dangky.html">Đăng nhập</a>
-          <a class="btn btn-ghost" href="html/pdt-lop.html">Vào trang Phòng đào tạo</a>
-        </div>
-
-        <div class="login-links">
-          <a href="#" data-confirm="Hệ thống gửi yêu cầu đặt lại mật khẩu về email của tài khoản. Bạn chưa nhập đúng thông tin thì hệ thống vẫn chỉ báo lỗi chung.">Quên mật khẩu?</a>
-          <span class="hint">Sai thông tin sẽ báo lỗi chung, không nêu rõ trường nào sai.</span>
-        </div>
-
-      </div>
-
-    </div>
-  </div>
-  <script src="js/main.js"></script>
+  <div class="dang-tai">Đang tải...</div>
+  <script src="src/common/cau-hinh.js"></script>
+  <script src="src/common/phien.js"></script>
+  <script src="src/dto/dto-chuong-trinh-dao-tao.js"></script>
+  <script src="src/dto/dto-ctdt-hoc-phan.js"></script>
+  <script src="src/dto/dto-dang-ky.js"></script>
+  <script src="src/dto/dto-danh-sach-cho.js"></script>
+  <script src="src/dto/dto-dot-dang-ky.js"></script>
+  <script src="src/dto/dto-dot-nhom.js"></script>
+  <script src="src/dto/dto-ghi-danh-hoc-phan.js"></script>
+  <script src="src/dto/dto-hoc-phan.js"></script>
+  <script src="src/dto/dto-ket-qua-hoc-tap.js"></script>
+  <script src="src/dto/dto-khoa.js"></script>
+  <script src="src/dto/dto-lich-hoc.js"></script>
+  <script src="src/dto/dto-lop-hoc-phan.js"></script>
+  <script src="src/dto/dto-nguoi-dung.js"></script>
+  <script src="src/dto/dto-nhat-ky-import.js"></script>
+  <script src="src/dto/dto-nhat-ky-thao-tac.js"></script>
+  <script src="src/dto/dto-nhom-sinh-vien.js"></script>
+  <script src="src/dto/dto-sinh-vien.js"></script>
+  <script src="src/dto/dto-tien-quyet.js"></script>
+  <script src="src/dao/dao-dang-ky.js"></script>
+  <script src="src/dao/dao-danh-sach-cho.js"></script>
+  <script src="src/dao/dao-dot-dang-ky.js"></script>
+  <script src="src/dao/dao-hoc-phan.js"></script>
+  <script src="src/dao/dao-lich-su.js"></script>
+  <script src="src/dao/dao-lop-hoc-phan.js"></script>
+  <script src="src/dao/dao-sinh-vien.js"></script>
+  <script src="src/dao/dao-tai-khoan.js"></script>
+  <script src="src/dao/dao-tkb.js"></script>
+  <script src="src/bus/bus-dang-ky.js"></script>
+  <script src="src/bus/bus-danh-sach-cho.js"></script>
+  <script src="src/bus/bus-dot-dang-ky.js"></script>
+  <script src="src/bus/bus-hoc-phan.js"></script>
+  <script src="src/bus/bus-lich-su.js"></script>
+  <script src="src/bus/bus-lop-hoc-phan.js"></script>
+  <script src="src/bus/bus-sinh-vien.js"></script>
+  <script src="src/bus/bus-tai-khoan.js"></script>
+  <script src="src/bus/bus-tkb.js"></script>
+  <script src="src/gui/khung.js"></script>
+  <script src="src/gui/thanh-phan.js"></script>
+  <script src="src/gui/trang/dang-ky.js"></script>
+  <script src="src/gui/trang/dang-nhap.js"></script>
+  <script src="src/gui/trang/don-vi.js"></script>
+  <script src="src/gui/trang/dot.js"></script>
+  <script src="src/gui/trang/hoc-phan.js"></script>
+  <script src="src/gui/trang/lop.js"></script>
+  <script src="src/gui/trang/sinh-vien.js"></script>
+  <script src="src/gui/trang/tai-khoan.js"></script>
+  <script src="src/gui/trang/tong-quan.js"></script>
+  <script src="src/gui/trang/tra-cuu.js"></script>
+  <script src="src/gui/khoi-dong.js"></script>
+  <script src="src/khoi-chay.js"></script>
 </body>
 </html>
