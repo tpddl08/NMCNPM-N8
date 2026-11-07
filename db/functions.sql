@@ -1,48 +1,39 @@
-create or replace function public._kiem_tra_pdt(p_vai_tro text)
-returns void
-language plpgsql
-immutable
-as $$
-begin
-  if p_vai_tro <> 'PDT' then
-    raise exception 'Bạn không có quyền thực hiện thao tác này';
-  end if;
-end;
-$$;
+CREATE OR REPLACE FUNCTION public._b64url_decode(p text)
+ RETURNS bytea
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  select decode(
+    translate(p, '-_', '+/') || repeat('=', (4 - length(p) % 4) % 4),
+    'base64'
+  );
+$function$
+;
 
-create or replace function public._ma_sv_cua(p_ma_tk integer)
-returns varchar
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select ma_sv from public.sinhvien where ma_tk = p_ma_tk;
-$$;
+CREATE OR REPLACE FUNCTION public._b64url_encode(p bytea)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  select rtrim(translate(encode(p, 'base64'), '+/', '-_'), '=');
+$function$
+;
 
-create or replace function public._dang_ky(
-  p_ma_tk integer,
-  p_vai_tro text,
-  p_ma_sv varchar,
-  p_ma_lop varchar,
-  p_bo_qua_dot boolean,
-  p_ly_do text
-)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public._dang_ky(p_ma_tk integer, p_vai_tro text, p_ma_sv character varying, p_ma_lop character varying, p_bo_qua_dot boolean, p_ly_do text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_lop public.lophocphan%rowtype;
   v_dot public.dotdangky%rowtype;
   v_sv public.sinhvien%rowtype;
-  v_nhom public.nhomsinhvien%rowtype;
   v_si_so integer;
   v_thieu text;
   v_trung varchar;
   v_loi text;
+  v_ghi_danh boolean;
   v_ma_dang_ky integer;
 begin
   select * into v_sv from public.sinhvien where ma_sv = p_ma_sv;
@@ -81,11 +72,6 @@ begin
 
   if v_loi is null then
     if exists (
-      select 1 from public.ketquahoctap k
-      where k.ma_sv = p_ma_sv and k.ma_hp = v_lop.ma_hp and k.diem >= 4
-    ) then
-      v_loi := 'Bạn đã đạt học phần này';
-    elsif exists (
       select 1 from public.dangky k
       join public.lophocphan l on l.ma_lop = k.ma_lop
       where k.ma_sv = p_ma_sv and k.trang_thai = 'HieuLuc'
@@ -95,9 +81,11 @@ begin
     end if;
   end if;
 
-  if v_loi is null and v_sv.ma_nhom is not null then
-    select * into v_nhom from public.nhomsinhvien where ma_nhom = v_sv.ma_nhom;
-    if coalesce(v_nhom.co_ghi_danh, false) and not exists (
+  if v_loi is null and not p_bo_qua_dot and v_sv.ma_nhom is not null then
+    select co_ghi_danh into v_ghi_danh
+    from public.dotnhom
+    where ma_dot = v_lop.ma_dot and ma_nhom = v_sv.ma_nhom;
+    if coalesce(v_ghi_danh, false) and not exists (
       select 1 from public.ghidanhhocphan g
       where g.ma_sv = p_ma_sv and g.ma_hp = v_lop.ma_hp and g.ma_dot = v_lop.ma_dot
     ) then
@@ -168,15 +156,192 @@ begin
 
   return jsonb_build_object('ok', true, 'ma_dang_ky', v_ma_dang_ky, 'message', 'Đăng ký thành công');
 end;
-$$;
+$function$
+;
 
-create or replace function public.dang_ky(p_token text, p_ma_lop text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public._ghi_nhat_ky(p_ma_tk integer, p_loai character varying, p_ket_qua character varying, p_ly_do character varying, p_ma_sv character varying DEFAULT NULL::character varying, p_ma_lop character varying DEFAULT NULL::character varying)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  insert into public.nhatkythaotac (loai_thao_tac, ket_qua, ly_do, ma_tk, ma_sv, ma_lop)
+  values (p_loai, p_ket_qua, coalesce(p_ly_do, ''), p_ma_tk, p_ma_sv, p_ma_lop);
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._khoa_ky()
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  RETURN '<PUBLISHABLE-KEY-DA-AN>';
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._kiem_tra_pdt(p_vai_tro text)
+ RETURNS void
+ LANGUAGE plpgsql
+ IMMUTABLE
+AS $function$
+begin
+  if p_vai_tro <> 'PDT' then
+    raise exception 'Bạn không có quyền thực hiện thao tác này';
+  end if;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._lich_cua_lop(p_ma_lop character varying)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'ma_buoi', l.ma_buoi,
+    'thu', l.thu,
+    'tiet_bat_dau', l.tiet_bat_dau,
+    'tiet_ket_thuc', l.tiet_ket_thuc,
+    'phong_hoc', l.phong_hoc,
+    'giang_vien', l.giang_vien
+  ) order by l.thu, l.tiet_bat_dau), '[]'::jsonb)
+  from public.lichhoc l
+  where l.ma_lop = p_ma_lop;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._ma_sv_cua(p_ma_tk integer)
+ RETURNS character varying
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select ma_sv from public.sinhvien where ma_tk = p_ma_tk;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._tao_token(p_ma_tk integer, p_vai_tro text)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+declare
+  v_payload jsonb;
+  v_chuoi text;
+begin
+  v_payload := jsonb_build_object(
+    'ma_tk', p_ma_tk,
+    'vai_tro', p_vai_tro,
+    'het_han', extract(epoch from now() + interval '2 hours')::bigint
+  );
+  v_chuoi := public._b64url_encode(convert_to(v_payload::text, 'utf8'));
+  return v_chuoi || '.' ||
+    public._b64url_encode(hmac(v_chuoi, public._khoa_ky(), 'sha256'));
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.chan_sua_nhat_ky()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  raise exception 'Nhật ký chỉ được thêm, không được sửa hoặc xóa';
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.chan_sua_xoa_nhat_ky()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    RAISE EXCEPTION '% là nhật ký chỉ thêm, không được sửa hoặc xóa.', TG_TABLE_NAME;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.chi_tiet_lop(p_token text, p_ma_lop text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  return (
+    select jsonb_build_object(
+      'ma_lop', lp.ma_lop,
+      'ma_hp', lp.ma_hp,
+      'ten_hp', h.ten_hp,
+      'so_tin_chi', h.so_tin_chi,
+      'ma_dot', lp.ma_dot,
+      'ten_dot', d.ten_dot,
+      'suc_chua', lp.suc_chua,
+      'si_so', (select count(*) from public.dangky k where k.ma_lop = lp.ma_lop and k.trang_thai = 'HieuLuc'),
+      'trang_thai', lp.trang_thai,
+      'thoi_diem_mo', d.thoi_diem_mo,
+      'thoi_diem_dong', d.thoi_diem_dong,
+      'nguong_huy_lop', d.nguong_huy_lop,
+      'lich', public._lich_cua_lop(lp.ma_lop)
+    )
+    from public.lophocphan lp
+    join public.hocphan h on h.ma_hp = lp.ma_hp
+    join public.dotdangky d on d.ma_dot = lp.ma_dot
+    where lp.ma_lop = p_ma_lop
+  );
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.ctdt_cua_sinh_vien(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_sv public.sinhvien%rowtype;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  select * into v_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
+  if not found then
+    return '[]'::jsonb;
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_ctdt', ct.ma_ctdt,
+      'ma_hp', ct.ma_hp,
+      'hoc_ky_du_kien', ct.hoc_ky_du_kien,
+      'ten_hp', h.ten_hp,
+      'so_tin_chi', h.so_tin_chi,
+      'da_dat', exists (
+        select 1 from public.ketquahoctap k
+        where k.ma_sv = v_sv.ma_sv and k.ma_hp = ct.ma_hp and k.diem >= 4
+      )
+    ) order by ct.hoc_ky_du_kien, ct.ma_hp)
+    from public.ctdt_hocphan ct
+    join public.hocphan h on h.ma_hp = ct.ma_hp
+    where ct.ma_ctdt = v_sv.ma_ctdt
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.dang_ky(p_token text, p_ma_lop text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_ma_sv varchar;
@@ -191,15 +356,15 @@ begin
   end if;
   return public._dang_ky(v_xt.ma_tk, v_xt.vai_tro, v_ma_sv, p_ma_lop, false, '');
 end;
-$$;
+$function$
+;
 
-create or replace function public.dang_ky_ho(p_token text, p_ma_sv text, p_ma_lop text, p_ly_do text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.dang_ky_ho(p_token text, p_ma_sv text, p_ma_lop text, p_ly_do text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
 begin
@@ -210,15 +375,614 @@ begin
   end if;
   return public._dang_ky(v_xt.ma_tk, v_xt.vai_tro, p_ma_sv, p_ma_lop, true, trim(p_ly_do));
 end;
-$$;
+$function$
+;
 
-create or replace function public.huy_dang_ky(p_token text, p_ma_dang_ky integer, p_ly_do text default '')
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.dang_nhap(p_ten_dang_nhap text, p_mat_khau text)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+declare
+  v_nd public.nguoidung%rowtype;
+begin
+  select * into v_nd from public.nguoidung
+  where ten_dang_nhap = trim(p_ten_dang_nhap);
+
+  if not found
+     or p_mat_khau is null
+     or v_nd.mat_khau_bam is null
+     or crypt(p_mat_khau, v_nd.mat_khau_bam) <> v_nd.mat_khau_bam then
+    raise exception 'Tên đăng nhập hoặc mật khẩu không đúng';
+  end if;
+
+  if v_nd.trang_thai <> 'HoatDong' then
+    raise exception 'Tài khoản đã bị khóa';
+  end if;
+
+  return public._tao_token(v_nd.ma_tk, v_nd.vai_tro);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_cho(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
+  if v_ma_sv is null then
+    return '[]'::jsonb;
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_ds', c.ma_ds,
+      'thoi_diem_vao', c.thoi_diem_vao,
+      'thu_tu', c.thu_tu,
+      'ma_sv', c.ma_sv,
+      'ma_lop', c.ma_lop,
+      'ma_dot', lp.ma_dot,
+      'ma_hp', lp.ma_hp,
+      'ten_hp', h.ten_hp,
+      'con_cho', case when (
+        select count(*) from public.dangky k where k.ma_lop = c.ma_lop and k.trang_thai = 'HieuLuc'
+      ) < lp.suc_chua then 1 else 0 end,
+      'la_dau', case when c.thu_tu = (
+        select min(c2.thu_tu) from public.danhsachcho c2 where c2.ma_lop = c.ma_lop
+      ) then 1 else 0 end,
+      'ho_ten', s.ho_ten
+    ) order by c.thoi_diem_vao)
+    from public.danhsachcho c
+    join public.lophocphan lp on lp.ma_lop = c.ma_lop
+    join public.hocphan h on h.ma_hp = lp.ma_hp
+    join public.sinhvien s on s.ma_sv = c.ma_sv
+    where c.ma_sv = v_ma_sv
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_cho_lop(p_token text, p_ma_lop text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_ds', c.ma_ds,
+      'thoi_diem_vao', c.thoi_diem_vao,
+      'thu_tu', c.thu_tu,
+      'ma_sv', c.ma_sv,
+      'ma_lop', c.ma_lop,
+      'ma_hp', lp.ma_hp,
+      'ten_hp', h.ten_hp,
+      'con_cho', case when (
+        select count(*) from public.dangky k where k.ma_lop = c.ma_lop and k.trang_thai = 'HieuLuc'
+      ) < lp.suc_chua then 1 else 0 end,
+      'la_dau', case when c.thu_tu = (
+        select min(c2.thu_tu) from public.danhsachcho c2 where c2.ma_lop = c.ma_lop
+      ) then 1 else 0 end,
+      'ho_ten', s.ho_ten
+    ) order by c.thu_tu)
+    from public.danhsachcho c
+    join public.lophocphan lp on lp.ma_lop = c.ma_lop
+    join public.hocphan h on h.ma_hp = lp.ma_hp
+    join public.sinhvien s on s.ma_sv = c.ma_sv
+    where c.ma_lop = p_ma_lop
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_ctdt(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_ctdt', c.ma_ctdt,
+      'ten_ctdt', c.ten_ctdt,
+      'nien_khoa', c.nien_khoa,
+      'hoc_phan', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'ma_ctdt', ct.ma_ctdt,
+          'ma_hp', ct.ma_hp,
+          'hoc_ky_du_kien', ct.hoc_ky_du_kien,
+          'ten_hp', hp.ten_hp,
+          'so_tin_chi', hp.so_tin_chi
+        ) order by ct.hoc_ky_du_kien, ct.ma_hp)
+        from public.ctdt_hocphan ct
+        join public.hocphan hp on hp.ma_hp = ct.ma_hp
+        where ct.ma_ctdt = c.ma_ctdt
+      ), '[]'::jsonb)
+    ) order by c.ma_ctdt)
+    from public.chuongtrinhdaotao c
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_dot(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_dot', d.ma_dot,
+      'ten_dot', d.ten_dot,
+      'hoc_ky', d.hoc_ky,
+      'nam_hoc', d.nam_hoc,
+      'thoi_diem_mo', d.thoi_diem_mo,
+      'thoi_diem_dong', d.thoi_diem_dong,
+      'nguong_huy_lop', d.nguong_huy_lop,
+      'dang_mo', case when now() >= d.thoi_diem_mo and now() < d.thoi_diem_dong then 1 else 0 end,
+      'nhom', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'ma_dot', dn.ma_dot,
+          'ma_nhom', dn.ma_nhom,
+          'ten_nhom', nh.ten_nhom,
+          'co_ghi_danh', dn.co_ghi_danh
+        ) order by dn.ma_nhom)
+        from public.dotnhom dn
+        join public.nhomsinhvien nh on nh.ma_nhom = dn.ma_nhom
+        where dn.ma_dot = d.ma_dot
+      ), '[]'::jsonb)
+    ) order by d.thoi_diem_mo desc)
+    from public.dotdangky d
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_ghi_danh(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  if v_xt.vai_tro = 'SV' then
+    select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_sv', g.ma_sv,
+      'ma_hp', g.ma_hp,
+      'ma_dot', g.ma_dot,
+      'thoi_diem', g.thoi_diem,
+      'ten_hp', h.ten_hp,
+      'so_tin_chi', h.so_tin_chi,
+      'ten_dot', d.ten_dot,
+      'bat_buoc', case when dn.co_ghi_danh then 1 else 0 end
+    ) order by g.ma_dot, g.ma_hp)
+    from public.ghidanhhocphan g
+    join public.hocphan h on h.ma_hp = g.ma_hp
+    join public.dotdangky d on d.ma_dot = g.ma_dot
+    join public.sinhvien s on s.ma_sv = g.ma_sv
+    left join public.dotnhom dn on dn.ma_dot = g.ma_dot and dn.ma_nhom = s.ma_nhom
+    where v_ma_sv is null or g.ma_sv = v_ma_sv
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_hoc_phan(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_hp', h.ma_hp,
+      'ten_hp', h.ten_hp,
+      'so_tin_chi', h.so_tin_chi,
+      'tien_quyet', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'ma_hp', t.ma_hp,
+          'ma_hp_tien_quyet', t.ma_hp_tien_quyet,
+          'loai_rang_buoc', t.loai_rang_buoc
+        ) order by t.ma_hp_tien_quyet)
+        from public.tienquyet t
+        where t.ma_hp = h.ma_hp
+      ), '[]'::jsonb)
+    ) order by h.ma_hp)
+    from public.hocphan h
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_ket_qua(p_token text, p_ma_sv text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  if v_xt.vai_tro = 'SV' then
+    select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
+  else
+    v_ma_sv := nullif(trim(p_ma_sv), '');
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_kq', k.ma_kq,
+      'hoc_ky', k.hoc_ky,
+      'diem', k.diem,
+      'ma_sv', k.ma_sv,
+      'ho_ten', s.ho_ten,
+      'ma_hp', k.ma_hp,
+      'ten_hp', h.ten_hp
+    ) order by s.ma_sv, k.hoc_ky, k.ma_hp)
+    from public.ketquahoctap k
+    join public.sinhvien s on s.ma_sv = k.ma_sv
+    join public.hocphan h on h.ma_hp = k.ma_hp
+    where v_ma_sv is null or k.ma_sv = v_ma_sv
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_khoa(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('ma_khoa', k.ma_khoa, 'ten_khoa', k.ten_khoa) order by k.ma_khoa)
+    from public.khoa k
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_lop(p_token text, p_ma_dot text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_lop', lp.ma_lop,
+      'ma_hp', lp.ma_hp,
+      'ten_hp', h.ten_hp,
+      'so_tin_chi', h.so_tin_chi,
+      'ma_dot', lp.ma_dot,
+      'ten_dot', d.ten_dot,
+      'suc_chua', lp.suc_chua,
+      'si_so', (select count(*) from public.dangky k where k.ma_lop = lp.ma_lop and k.trang_thai = 'HieuLuc'),
+      'trang_thai', lp.trang_thai,
+      'thoi_diem_mo', d.thoi_diem_mo,
+      'thoi_diem_dong', d.thoi_diem_dong,
+      'nguong_huy_lop', d.nguong_huy_lop,
+      'lich', public._lich_cua_lop(lp.ma_lop)
+    ) order by lp.ma_lop)
+    from public.lophocphan lp
+    join public.hocphan h on h.ma_hp = lp.ma_hp
+    join public.dotdangky d on d.ma_dot = lp.ma_dot
+    where p_ma_dot is null or p_ma_dot = '' or lp.ma_dot = p_ma_dot
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_nhat_ky_import(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_import', i.ma_import, 'thoi_gian', i.thoi_gian, 'ten_file', i.ten_file,
+      'so_dong_dung', i.so_dong_dung, 'so_dong_sai', i.so_dong_sai,
+      'ten_dang_nhap', n.ten_dang_nhap
+    ) order by i.thoi_gian desc)
+    from public.nhatkyimport i join public.nguoidung n on n.ma_tk = i.ma_tk
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_nhom(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_nhom', n.ma_nhom,
+      'ten_nhom', n.ten_nhom,
+      'ma_khoa', n.ma_khoa,
+      'ten_khoa', k.ten_khoa
+    ) order by n.ma_nhom)
+    from public.nhomsinhvien n
+    join public.khoa k on k.ma_khoa = n.ma_khoa
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_sinh_vien(p_token text, p_tu_khoa text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_sv', s.ma_sv,
+      'ho_ten', s.ho_ten,
+      'ngay_sinh', s.ngay_sinh,
+      'nien_khoa', s.nien_khoa,
+      'trang_thai', s.trang_thai,
+      'ma_tk', s.ma_tk,
+      'ten_dang_nhap', n.ten_dang_nhap,
+      'ma_khoa', s.ma_khoa,
+      'ten_khoa', k.ten_khoa,
+      'ma_nhom', s.ma_nhom,
+      'ten_nhom', nh.ten_nhom,
+      'ma_ctdt', s.ma_ctdt,
+      'ten_ctdt', c.ten_ctdt
+    ) order by s.ma_sv)
+    from public.sinhvien s
+    join public.nguoidung n on n.ma_tk = s.ma_tk
+    join public.khoa k on k.ma_khoa = s.ma_khoa
+    left join public.nhomsinhvien nh on nh.ma_nhom = s.ma_nhom
+    join public.chuongtrinhdaotao c on c.ma_ctdt = s.ma_ctdt
+    where coalesce(trim(p_tu_khoa), '') = ''
+      or s.ma_sv ilike '%' || trim(p_tu_khoa) || '%'
+      or s.ho_ten ilike '%' || trim(p_tu_khoa) || '%'
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.danh_sach_tai_khoan(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_tk', n.ma_tk,
+      'ten_dang_nhap', n.ten_dang_nhap,
+      'vai_tro', n.vai_tro,
+      'trang_thai', n.trang_thai,
+      'ho_ten', s.ho_ten,
+      'ma_sv', s.ma_sv
+    ) order by n.ten_dang_nhap)
+    from public.nguoidung n
+    left join public.sinhvien s on s.ma_tk = n.ma_tk
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.doi_mat_khau(p_token text, p_mat_khau_cu text, p_mat_khau_moi text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+declare
+  v_xac_thuc record;
+  v_nd public.nguoidung%rowtype;
+begin
+  select * into v_xac_thuc from public.xac_thuc_token(p_token);
+
+  if length(coalesce(p_mat_khau_moi, '')) < 8 then
+    raise exception 'Mật khẩu mới phải có ít nhất 8 ký tự';
+  end if;
+
+  select * into v_nd from public.nguoidung where ma_tk = v_xac_thuc.ma_tk;
+  if crypt(p_mat_khau_cu, v_nd.mat_khau_bam) <> v_nd.mat_khau_bam then
+    raise exception 'Mật khẩu cũ không đúng';
+  end if;
+
+  update public.nguoidung
+  set mat_khau_bam = crypt(p_mat_khau_moi, gen_salt('bf'))
+  where ma_tk = v_nd.ma_tk;
+
+  perform public._ghi_nhat_ky(v_nd.ma_tk, 'DoiMatKhau', 'ThanhCong', '');
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.dot_cua_sinh_vien(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_sv public.sinhvien%rowtype;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  select * into v_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_dot', d.ma_dot,
+      'ten_dot', d.ten_dot,
+      'hoc_ky', d.hoc_ky,
+      'nam_hoc', d.nam_hoc,
+      'thoi_diem_mo', d.thoi_diem_mo,
+      'thoi_diem_dong', d.thoi_diem_dong,
+      'nguong_huy_lop', d.nguong_huy_lop,
+      'co_ghi_danh', dn.co_ghi_danh
+    ) order by d.thoi_diem_dong)
+    from public.dotdangky d
+    join public.dotnhom dn on dn.ma_dot = d.ma_dot and dn.ma_nhom = v_sv.ma_nhom
+    where now() >= d.thoi_diem_mo and now() < d.thoi_diem_dong
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.ghi_danh_hoc_phan(p_token text, p_ma_hp text, p_ma_dot text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+  v_sv public.sinhvien%rowtype;
+  v_dot public.dotdangky%rowtype;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  if v_xt.vai_tro <> 'SV' then
+    raise exception 'Chỉ sinh viên mới sử dụng chức năng này';
+  end if;
+  v_ma_sv := public._ma_sv_cua(v_xt.ma_tk);
+  select * into v_sv from public.sinhvien where ma_sv = v_ma_sv;
+  select * into v_dot from public.dotdangky where ma_dot = p_ma_dot;
+  if not found then
+    raise exception 'Không tìm thấy đợt đăng ký';
+  end if;
+  if now() < v_dot.thoi_diem_mo or now() >= v_dot.thoi_diem_dong then
+    raise exception 'Đợt đăng ký chưa mở hoặc đã đóng';
+  end if;
+  if not exists (select 1 from public.dotnhom where ma_dot = p_ma_dot and ma_nhom = v_sv.ma_nhom) then
+    raise exception 'Bạn không thuộc nhóm được phép của đợt này';
+  end if;
+  if not coalesce((
+    select dn.co_ghi_danh from public.dotnhom dn
+    where dn.ma_dot = p_ma_dot and dn.ma_nhom = v_sv.ma_nhom
+  ), false) then
+    raise exception 'Nhóm của bạn không có yêu cầu ghi danh trong đợt này';
+  end if;
+  if not exists (select 1 from public.ctdt_hocphan where ma_ctdt = v_sv.ma_ctdt and ma_hp = p_ma_hp) then
+    raise exception 'Học phần không thuộc chương trình đào tạo của bạn';
+  end if;
+
+  insert into public.ghidanhhocphan (ma_sv, ma_hp, ma_dot)
+  values (v_ma_sv, p_ma_hp, p_ma_dot)
+  on conflict (ma_sv, ma_hp, ma_dot) do nothing;
+
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'GhiDanh', 'ThanhCong', p_ma_hp, v_ma_sv, null);
+  return jsonb_build_object('ok', true, 'message', 'Đã ghi danh học phần');
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.hoc_phan_da_dang_ky(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
+  if v_ma_sv is null then
+    return '[]'::jsonb;
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_dang_ky', k.ma_dang_ky,
+      'thoi_diem_dang_ky', k.thoi_diem_dang_ky,
+      'trang_thai', k.trang_thai,
+      'ma_sv', k.ma_sv,
+      'ma_lop', k.ma_lop,
+      'ma_hp', lp.ma_hp,
+      'ten_hp', h.ten_hp,
+      'so_tin_chi', h.so_tin_chi,
+      'ten_dot', d.ten_dot,
+      'lich', public._lich_cua_lop(k.ma_lop)
+    ) order by k.thoi_diem_dang_ky desc)
+    from public.dangky k
+    join public.lophocphan lp on lp.ma_lop = k.ma_lop
+    join public.hocphan h on h.ma_hp = lp.ma_hp
+    join public.dotdangky d on d.ma_dot = lp.ma_dot
+    where k.ma_sv = v_ma_sv
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.huy_dang_ky(p_token text, p_ma_dang_ky integer, p_ly_do text DEFAULT ''::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_k public.dangky%rowtype;
@@ -255,276 +1019,102 @@ begin
   perform public._ghi_nhat_ky(v_xt.ma_tk, 'HuyDangKy', 'ThanhCong', coalesce(p_ly_do, ''), v_k.ma_sv, v_k.ma_lop);
   return jsonb_build_object('ok', true, 'message', 'Đã hủy đăng ký');
 end;
-$$;
+$function$
+;
 
-create or replace function public.vao_danh_sach_cho(p_token text, p_ma_lop text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.huy_ghi_danh_hoc_phan(p_token text, p_ma_hp text, p_ma_dot text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_ma_sv varchar;
-  v_lop public.lophocphan%rowtype;
-  v_si_so integer;
-  v_thu_tu integer;
-  v_ma_ds integer;
 begin
   select * into v_xt from public.xac_thuc_token(p_token);
   if v_xt.vai_tro <> 'SV' then
     raise exception 'Chỉ sinh viên mới sử dụng chức năng này';
   end if;
   v_ma_sv := public._ma_sv_cua(v_xt.ma_tk);
-  if v_ma_sv is null then
-    raise exception 'Tài khoản sinh viên không hợp lệ';
-  end if;
+  delete from public.ghidanhhocphan where ma_sv = v_ma_sv and ma_hp = p_ma_hp and ma_dot = p_ma_dot;
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'HuyGhiDanh', 'ThanhCong', p_ma_hp, v_ma_sv, null);
+  return jsonb_build_object('ok', true, 'message', 'Đã hủy ghi danh học phần');
+end;
+$function$
+;
 
+CREATE OR REPLACE FUNCTION public.huy_lop(p_token text, p_ma_lop text, p_ly_do text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_lop public.lophocphan%rowtype;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  if coalesce(trim(p_ly_do), '') = '' then
+    raise exception 'Vui lòng nhập lý do hủy lớp';
+  end if;
   select * into v_lop from public.lophocphan where ma_lop = p_ma_lop;
   if not found then
     raise exception 'Không tìm thấy lớp học phần';
   end if;
-  if v_lop.trang_thai <> 'Mo' then
-    raise exception 'Lớp học phần đã đóng hoặc đã bị hủy';
-  end if;
-  if exists (
-    select 1 from public.ketquahoctap k
-    where k.ma_sv = v_ma_sv and k.ma_hp = v_lop.ma_hp and k.diem >= 4
-  ) then
-    raise exception 'Bạn đã đạt học phần này';
-  end if;
-  if exists (
-    select 1 from public.dangky k
-    where k.ma_lop = p_ma_lop and k.ma_sv = v_ma_sv and k.trang_thai = 'HieuLuc'
-  ) then
-    raise exception 'Bạn đã đăng ký lớp học phần này';
+  if v_lop.trang_thai = 'BiHuy' then
+    return jsonb_build_object('ok', true, 'message', 'Lớp đã được hủy trước đó');
   end if;
 
-  select count(*) into v_si_so from public.dangky where ma_lop = p_ma_lop and trang_thai = 'HieuLuc';
-  if v_si_so < v_lop.suc_chua then
-    raise exception 'Lớp còn chỗ, vui lòng đăng ký trực tiếp';
-  end if;
-  if exists (select 1 from public.danhsachcho where ma_sv = v_ma_sv and ma_lop = p_ma_lop) then
-    raise exception 'Bạn đã có trong danh sách chờ của lớp này';
-  end if;
-
-  select coalesce(max(thu_tu), 0) + 1 into v_thu_tu from public.danhsachcho where ma_lop = p_ma_lop;
-  insert into public.danhsachcho (thu_tu, ma_sv, ma_lop)
-  values (v_thu_tu, v_ma_sv, p_ma_lop)
-  returning ma_ds into v_ma_ds;
-
-  perform public._ghi_nhat_ky(v_xt.ma_tk, 'VaoDanhSachCho', 'ThanhCong', 'Vị trí ' || v_thu_tu, v_ma_sv, p_ma_lop);
-  return jsonb_build_object('ok', true, 'thu_tu', v_thu_tu, 'message', 'Đã vào danh sách chờ');
+  update public.lophocphan set trang_thai = 'BiHuy' where ma_lop = p_ma_lop;
+  update public.dangky set trang_thai = 'LopBiHuy' where ma_lop = p_ma_lop and trang_thai = 'HieuLuc';
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'HuyLop', 'ThanhCong', trim(p_ly_do), null, p_ma_lop);
+  return jsonb_build_object('ok', true, 'message', 'Đã hủy lớp');
 end;
-$$;
+$function$
+;
 
-create or replace function public.xac_nhan_cho(p_token text, p_ma_lop text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_sv varchar;
-  v_dau varchar;
-  v_kq jsonb;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  if v_xt.vai_tro <> 'SV' then
-    raise exception 'Chỉ sinh viên mới sử dụng chức năng này';
-  end if;
-  v_ma_sv := public._ma_sv_cua(v_xt.ma_tk);
-
-  select ma_sv into v_dau from public.danhsachcho
-  where ma_lop = p_ma_lop order by thu_tu limit 1;
-  if v_dau is null or v_dau <> v_ma_sv then
-    raise exception 'Bạn chưa phải người đầu tiên trong danh sách chờ';
-  end if;
-
-  v_kq := public._dang_ky(v_xt.ma_tk, v_xt.vai_tro, v_ma_sv, p_ma_lop, false, 'Xác nhận từ danh sách chờ');
-  if (v_kq ->> 'ok')::boolean then
-    delete from public.danhsachcho where ma_sv = v_ma_sv and ma_lop = p_ma_lop;
-  end if;
-  return v_kq;
-end;
-$$;
-
-create or replace function public.roi_danh_sach_cho(p_token text, p_ma_lop text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.ket_qua_cua_sinh_vien(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_ma_sv varchar;
 begin
   select * into v_xt from public.xac_thuc_token(p_token);
-  if v_xt.vai_tro <> 'SV' then
-    raise exception 'Chỉ sinh viên mới sử dụng chức năng này';
-  end if;
-  v_ma_sv := public._ma_sv_cua(v_xt.ma_tk);
+  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
   if v_ma_sv is null then
-    raise exception 'Tài khoản sinh viên không hợp lệ';
+    return '[]'::jsonb;
   end if;
-  delete from public.danhsachcho where ma_sv = v_ma_sv and ma_lop = p_ma_lop;
-  perform public._ghi_nhat_ky(v_xt.ma_tk, 'RoiDanhSachCho', 'ThanhCong', '', v_ma_sv, p_ma_lop);
-  return jsonb_build_object('ok', true, 'message', 'Đã rời danh sách chờ');
-end;
-$$;
-
-create or replace function public.ghi_danh_hoc_phan(p_token text, p_ma_hp text, p_ma_dot text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_sv varchar;
-  v_sv public.sinhvien%rowtype;
-  v_dot public.dotdangky%rowtype;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  if v_xt.vai_tro <> 'SV' then
-    raise exception 'Chỉ sinh viên mới sử dụng chức năng này';
-  end if;
-  v_ma_sv := public._ma_sv_cua(v_xt.ma_tk);
-  select * into v_sv from public.sinhvien where ma_sv = v_ma_sv;
-  select * into v_dot from public.dotdangky where ma_dot = p_ma_dot;
-  if not found then
-    raise exception 'Không tìm thấy đợt đăng ký';
-  end if;
-  if now() < v_dot.thoi_diem_mo or now() >= v_dot.thoi_diem_dong then
-    raise exception 'Đợt đăng ký chưa mở hoặc đã đóng';
-  end if;
-  if not exists (select 1 from public.dotnhom where ma_dot = p_ma_dot and ma_nhom = v_sv.ma_nhom) then
-    raise exception 'Bạn không thuộc nhóm được phép của đợt này';
-  end if;
-  if not exists (select 1 from public.ctdt_hocphan where ma_ctdt = v_sv.ma_ctdt and ma_hp = p_ma_hp) then
-    raise exception 'Học phần không thuộc chương trình đào tạo của bạn';
-  end if;
-
-  insert into public.ghidanhhocphan (ma_sv, ma_hp, ma_dot)
-  values (v_ma_sv, p_ma_hp, p_ma_dot)
-  on conflict (ma_sv, ma_hp, ma_dot) do nothing;
-
-  perform public._ghi_nhat_ky(v_xt.ma_tk, 'GhiDanh', 'ThanhCong', p_ma_hp, v_ma_sv, null);
-  return jsonb_build_object('ok', true, 'message', 'Đã ghi danh học phần');
-end;
-$$;
-
-create or replace function public.xu_ly_sau_dot(p_token text, p_ma_dot text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_dot public.dotdangky%rowtype;
-  v_lop public.lophocphan%rowtype;
-  v_si_so integer;
-  v_so_lop integer := 0;
-  v_so_dang_ky integer := 0;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  select * into v_dot from public.dotdangky where ma_dot = p_ma_dot;
-  if not found then
-    raise exception 'Không tìm thấy đợt đăng ký';
-  end if;
-  if now() < v_dot.thoi_diem_dong then
-    raise exception 'Đợt đăng ký chưa kết thúc';
-  end if;
-
-  for v_lop in
-    select * from public.lophocphan where ma_dot = p_ma_dot and trang_thai = 'Mo'
-  loop
-    select count(*) into v_si_so from public.dangky
-    where ma_lop = v_lop.ma_lop and trang_thai = 'HieuLuc';
-    if v_si_so < v_dot.nguong_huy_lop then
-      update public.lophocphan set trang_thai = 'BiHuy' where ma_lop = v_lop.ma_lop;
-      update public.dangky set trang_thai = 'LopBiHuy'
-      where ma_lop = v_lop.ma_lop and trang_thai = 'HieuLuc';
-      get diagnostics v_si_so = row_count;
-      delete from public.danhsachcho where ma_lop = v_lop.ma_lop;
-      v_so_dang_ky := v_so_dang_ky + v_si_so;
-      perform public._ghi_nhat_ky(
-        v_xt.ma_tk, 'XuLySauDot', 'ThanhCong',
-        v_lop.ma_lop || ': sĩ số ' || v_si_so || ' dưới ngưỡng ' || v_dot.nguong_huy_lop,
-        null, v_lop.ma_lop
-      );
-      v_so_lop := v_so_lop + 1;
-    end if;
-  end loop;
-
-  return jsonb_build_object('so_lop_huy', v_so_lop, 'so_dang_ky_huy', v_so_dang_ky);
-end;
-$$;
-
-create or replace function public.dot_cua_sinh_vien(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_sv public.sinhvien%rowtype;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  select * into v_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
   return coalesce((
     select jsonb_agg(jsonb_build_object(
-      'ma_dot', d.ma_dot,
-      'ten_dot', d.ten_dot,
-      'hoc_ky', d.hoc_ky,
-      'nam_hoc', d.nam_hoc,
-      'thoi_diem_mo', d.thoi_diem_mo,
-      'thoi_diem_dong', d.thoi_diem_dong,
-      'nguong_huy_lop', d.nguong_huy_lop
-    ) order by d.thoi_diem_dong)
-    from public.dotdangky d
-    join public.dotnhom dn on dn.ma_dot = d.ma_dot and dn.ma_nhom = v_sv.ma_nhom
-    where now() >= d.thoi_diem_mo and now() < d.thoi_diem_dong
+      'ma_kq', k.ma_kq,
+      'hoc_ky', k.hoc_ky,
+      'diem', k.diem,
+      'ma_sv', k.ma_sv,
+      'ho_ten', s.ho_ten,
+      'ma_hp', k.ma_hp,
+      'ten_hp', h.ten_hp
+    ) order by k.hoc_ky, k.ma_hp)
+    from public.ketquahoctap k
+    join public.sinhvien s on s.ma_sv = k.ma_sv
+    join public.hocphan h on h.ma_hp = k.ma_hp
+    where k.ma_sv = v_ma_sv
   ), '[]'::jsonb);
 end;
-$$;
+$function$
+;
 
-create or replace function public._lich_cua_lop(p_ma_lop varchar)
-returns jsonb
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce(jsonb_agg(jsonb_build_object(
-    'ma_buoi', l.ma_buoi,
-    'thu', l.thu,
-    'tiet_bat_dau', l.tiet_bat_dau,
-    'tiet_ket_thuc', l.tiet_ket_thuc,
-    'phong_hoc', l.phong_hoc,
-    'giang_vien', l.giang_vien
-  ) order by l.thu, l.tiet_bat_dau), '[]'::jsonb)
-  from public.lichhoc l
-  where l.ma_lop = p_ma_lop;
-$$;
-
-create or replace function public.lay_ho_so(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.lay_ho_so(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
 begin
@@ -554,282 +1144,48 @@ begin
     where n.ma_tk = v_xt.ma_tk
   );
 end;
-$$;
+$function$
+;
 
-create or replace function public.thong_ke(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  return jsonb_build_object(
-    'sinh_vien', (select count(*) from public.sinhvien),
-    'hoc_phan', (select count(*) from public.hocphan),
-    'lop', (select count(*) from public.lophocphan),
-    'dang_ky', (select count(*) from public.dangky where trang_thai = 'HieuLuc'),
-    'dot_mo', (select count(*) from public.dotdangky where now() >= thoi_diem_mo and now() < thoi_diem_dong),
-    'cho', (select count(*) from public.danhsachcho)
-  );
-end;
-$$;
-
-create or replace function public.danh_sach_sinh_vien(p_token text, p_tu_khoa text default null)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_sv', s.ma_sv,
-      'ho_ten', s.ho_ten,
-      'ngay_sinh', s.ngay_sinh,
-      'nien_khoa', s.nien_khoa,
-      'trang_thai', s.trang_thai,
-      'ma_tk', s.ma_tk,
-      'ten_dang_nhap', n.ten_dang_nhap,
-      'ma_khoa', s.ma_khoa,
-      'ten_khoa', k.ten_khoa,
-      'ma_nhom', s.ma_nhom,
-      'ten_nhom', nh.ten_nhom,
-      'ma_ctdt', s.ma_ctdt,
-      'ten_ctdt', c.ten_ctdt
-    ) order by s.ma_sv)
-    from public.sinhvien s
-    join public.nguoidung n on n.ma_tk = s.ma_tk
-    join public.khoa k on k.ma_khoa = s.ma_khoa
-    left join public.nhomsinhvien nh on nh.ma_nhom = s.ma_nhom
-    join public.chuongtrinhdaotao c on c.ma_ctdt = s.ma_ctdt
-    where coalesce(trim(p_tu_khoa), '') = ''
-      or s.ma_sv ilike '%' || trim(p_tu_khoa) || '%'
-      or s.ho_ten ilike '%' || trim(p_tu_khoa) || '%'
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_khoa(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object('ma_khoa', k.ma_khoa, 'ten_khoa', k.ten_khoa) order by k.ma_khoa)
-    from public.khoa k
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_nhom(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_nhom', n.ma_nhom,
-      'ten_nhom', n.ten_nhom,
-      'co_ghi_danh', n.co_ghi_danh,
-      'ma_khoa', n.ma_khoa,
-      'ten_khoa', k.ten_khoa
-    ) order by n.ma_nhom)
-    from public.nhomsinhvien n
-    join public.khoa k on k.ma_khoa = n.ma_khoa
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_ctdt(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_ctdt', c.ma_ctdt,
-      'ten_ctdt', c.ten_ctdt,
-      'nien_khoa', c.nien_khoa,
-      'hoc_phan', coalesce((
-        select jsonb_agg(jsonb_build_object(
-          'ma_ctdt', ct.ma_ctdt,
-          'ma_hp', ct.ma_hp,
-          'hoc_ky_du_kien', ct.hoc_ky_du_kien,
-          'ten_hp', hp.ten_hp,
-          'so_tin_chi', hp.so_tin_chi
-        ) order by ct.hoc_ky_du_kien, ct.ma_hp)
-        from public.ctdt_hocphan ct
-        join public.hocphan hp on hp.ma_hp = ct.ma_hp
-        where ct.ma_ctdt = c.ma_ctdt
-      ), '[]'::jsonb)
-    ) order by c.ma_ctdt)
-    from public.chuongtrinhdaotao c
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_hoc_phan(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_hp', h.ma_hp,
-      'ten_hp', h.ten_hp,
-      'so_tin_chi', h.so_tin_chi,
-      'tien_quyet', coalesce((
-        select jsonb_agg(jsonb_build_object(
-          'ma_hp', t.ma_hp,
-          'ma_hp_tien_quyet', t.ma_hp_tien_quyet,
-          'loai_rang_buoc', t.loai_rang_buoc
-        ) order by t.ma_hp_tien_quyet)
-        from public.tienquyet t
-        where t.ma_hp = h.ma_hp
-      ), '[]'::jsonb)
-    ) order by h.ma_hp)
-    from public.hocphan h
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_dot(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_dot', d.ma_dot,
-      'ten_dot', d.ten_dot,
-      'hoc_ky', d.hoc_ky,
-      'nam_hoc', d.nam_hoc,
-      'thoi_diem_mo', d.thoi_diem_mo,
-      'thoi_diem_dong', d.thoi_diem_dong,
-      'nguong_huy_lop', d.nguong_huy_lop,
-      'dang_mo', case when now() >= d.thoi_diem_mo and now() < d.thoi_diem_dong then 1 else 0 end,
-      'nhom', coalesce((
-        select jsonb_agg(jsonb_build_object('ma_dot', dn.ma_dot, 'ma_nhom', dn.ma_nhom, 'ten_nhom', nh.ten_nhom) order by dn.ma_nhom)
-        from public.dotnhom dn
-        join public.nhomsinhvien nh on nh.ma_nhom = dn.ma_nhom
-        where dn.ma_dot = d.ma_dot
-      ), '[]'::jsonb)
-    ) order by d.thoi_diem_mo desc)
-    from public.dotdangky d
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_tai_khoan(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_tk', n.ma_tk,
-      'ten_dang_nhap', n.ten_dang_nhap,
-      'vai_tro', n.vai_tro,
-      'trang_thai', n.trang_thai,
-      'ho_ten', s.ho_ten,
-      'ma_sv', s.ma_sv
-    ) order by n.ten_dang_nhap)
-    from public.nguoidung n
-    left join public.sinhvien s on s.ma_tk = n.ma_tk
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_ket_qua(p_token text, p_ma_sv text default null)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.lich_su_thao_tac(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_ma_sv varchar;
 begin
   select * into v_xt from public.xac_thuc_token(p_token);
-  if v_xt.vai_tro = 'SV' then
-    select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
-  else
-    v_ma_sv := nullif(trim(p_ma_sv), '');
-  end if;
+  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
   return coalesce((
     select jsonb_agg(jsonb_build_object(
-      'ma_kq', k.ma_kq,
-      'hoc_ky', k.hoc_ky,
-      'diem', k.diem,
-      'ma_sv', k.ma_sv,
-      'ho_ten', s.ho_ten,
-      'ma_hp', k.ma_hp,
-      'ten_hp', h.ten_hp
-    ) order by s.ma_sv, k.hoc_ky, k.ma_hp)
-    from public.ketquahoctap k
-    join public.sinhvien s on s.ma_sv = k.ma_sv
-    join public.hocphan h on h.ma_hp = k.ma_hp
-    where v_ma_sv is null or k.ma_sv = v_ma_sv
+      'ma_log', l.ma_log,
+      'thoi_gian', l.thoi_gian,
+      'loai_thao_tac', l.loai_thao_tac,
+      'ket_qua', l.ket_qua,
+      'ly_do', l.ly_do,
+      'ma_tk', l.ma_tk,
+      'ma_sv', l.ma_sv,
+      'ma_lop', l.ma_lop,
+      'ten_dang_nhap', n.ten_dang_nhap
+    ) order by l.thoi_gian desc, l.ma_log desc)
+    from public.nhatkythaotac l
+    join public.nguoidung n on n.ma_tk = l.ma_tk
+    where v_xt.vai_tro = 'PDT' or l.ma_tk = v_xt.ma_tk or (v_ma_sv is not null and l.ma_sv = v_ma_sv)
+    limit 500
   ), '[]'::jsonb);
 end;
-$$;
+$function$
+;
 
-create or replace function public.lop_dang_mo(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.lop_dang_mo(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_sv public.sinhvien%rowtype;
@@ -869,537 +1225,94 @@ begin
       and now() < d.thoi_diem_dong
   ), '[]'::jsonb);
 end;
-$$;
+$function$
+;
 
-create or replace function public.chi_tiet_lop(p_token text, p_ma_lop text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.luu_ctdt(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  return (
-    select jsonb_build_object(
-      'ma_lop', lp.ma_lop,
-      'ma_hp', lp.ma_hp,
-      'ten_hp', h.ten_hp,
-      'so_tin_chi', h.so_tin_chi,
-      'ma_dot', lp.ma_dot,
-      'ten_dot', d.ten_dot,
-      'suc_chua', lp.suc_chua,
-      'si_so', (select count(*) from public.dangky k where k.ma_lop = lp.ma_lop and k.trang_thai = 'HieuLuc'),
-      'trang_thai', lp.trang_thai,
-      'thoi_diem_mo', d.thoi_diem_mo,
-      'thoi_diem_dong', d.thoi_diem_dong,
-      'nguong_huy_lop', d.nguong_huy_lop,
-      'lich', public._lich_cua_lop(lp.ma_lop)
-    )
-    from public.lophocphan lp
-    join public.hocphan h on h.ma_hp = lp.ma_hp
-    join public.dotdangky d on d.ma_dot = lp.ma_dot
-    where lp.ma_lop = p_ma_lop
-  );
-end;
-$$;
-
-create or replace function public.danh_sach_lop(p_token text, p_ma_dot text default null)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
+  v_ma_ctdt text := trim(coalesce(p_du_lieu ->> 'ma_ctdt', ''));
+  v_mon jsonb;
 begin
   select * into v_xt from public.xac_thuc_token(p_token);
   perform public._kiem_tra_pdt(v_xt.vai_tro);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_lop', lp.ma_lop,
-      'ma_hp', lp.ma_hp,
-      'ten_hp', h.ten_hp,
-      'so_tin_chi', h.so_tin_chi,
-      'ma_dot', lp.ma_dot,
-      'ten_dot', d.ten_dot,
-      'suc_chua', lp.suc_chua,
-      'si_so', (select count(*) from public.dangky k where k.ma_lop = lp.ma_lop and k.trang_thai = 'HieuLuc'),
-      'trang_thai', lp.trang_thai,
-      'thoi_diem_mo', d.thoi_diem_mo,
-      'thoi_diem_dong', d.thoi_diem_dong,
-      'nguong_huy_lop', d.nguong_huy_lop,
-      'lich', public._lich_cua_lop(lp.ma_lop)
-    ) order by lp.ma_lop)
-    from public.lophocphan lp
-    join public.hocphan h on h.ma_hp = lp.ma_hp
-    join public.dotdangky d on d.ma_dot = lp.ma_dot
-    where p_ma_dot is null or p_ma_dot = '' or lp.ma_dot = p_ma_dot
-  ), '[]'::jsonb);
-end;
-$$;
 
-create or replace function public.danh_sach_ghi_danh(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_sv varchar;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  if v_xt.vai_tro = 'SV' then
-    select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
-  end if;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_sv', g.ma_sv,
-      'ma_hp', g.ma_hp,
-      'ma_dot', g.ma_dot,
-      'thoi_diem', g.thoi_diem,
-      'ten_hp', h.ten_hp,
-      'so_tin_chi', h.so_tin_chi,
-      'ten_dot', d.ten_dot,
-      'bat_buoc', case when nh.co_ghi_danh then 1 else 0 end
-    ) order by g.ma_dot, g.ma_hp)
-    from public.ghidanhhocphan g
-    join public.hocphan h on h.ma_hp = g.ma_hp
-    join public.dotdangky d on d.ma_dot = g.ma_dot
-    join public.sinhvien s on s.ma_sv = g.ma_sv
-    left join public.nhomsinhvien nh on nh.ma_nhom = s.ma_nhom
-    where v_ma_sv is null or g.ma_sv = v_ma_sv
-  ), '[]'::jsonb);
-end;
-$$;
+  insert into public.chuongtrinhdaotao (ma_ctdt, ten_ctdt, nien_khoa)
+  values (v_ma_ctdt, trim(p_du_lieu ->> 'ten_ctdt'), p_du_lieu ->> 'nien_khoa')
+  on conflict (ma_ctdt) do update set
+    ten_ctdt = excluded.ten_ctdt,
+    nien_khoa = excluded.nien_khoa;
 
-create or replace function public.hoc_phan_da_dang_ky(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_sv varchar;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
-  if v_ma_sv is null then
-    return '[]'::jsonb;
-  end if;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_dang_ky', k.ma_dang_ky,
-      'thoi_diem_dang_ky', k.thoi_diem_dang_ky,
-      'trang_thai', k.trang_thai,
-      'ma_sv', k.ma_sv,
-      'ma_lop', k.ma_lop,
-      'ma_hp', lp.ma_hp,
-      'ten_hp', h.ten_hp,
-      'so_tin_chi', h.so_tin_chi,
-      'ten_dot', d.ten_dot,
-      'lich', public._lich_cua_lop(k.ma_lop)
-    ) order by k.thoi_diem_dang_ky desc)
-    from public.dangky k
-    join public.lophocphan lp on lp.ma_lop = k.ma_lop
-    join public.hocphan h on h.ma_hp = lp.ma_hp
-    join public.dotdangky d on d.ma_dot = lp.ma_dot
-    where k.ma_sv = v_ma_sv
-  ), '[]'::jsonb);
-end;
-$$;
+  delete from public.ctdt_hocphan where ma_ctdt = v_ma_ctdt;
+  for v_mon in select * from jsonb_array_elements(coalesce(p_du_lieu -> 'hoc_phan', '[]'::jsonb))
+  loop
+    insert into public.ctdt_hocphan (ma_ctdt, ma_hp, hoc_ky_du_kien)
+    values (v_ma_ctdt, v_mon ->> 'ma_hp', nullif(v_mon ->> 'hoc_ky_du_kien', '')::smallint);
+  end loop;
 
-create or replace function public.thoi_khoa_bieu(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_sv varchar;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
-  if v_ma_sv is null then
-    return '[]'::jsonb;
-  end if;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_buoi', l.ma_buoi,
-      'thu', l.thu,
-      'tiet_bat_dau', l.tiet_bat_dau,
-      'tiet_ket_thuc', l.tiet_ket_thuc,
-      'phong_hoc', l.phong_hoc,
-      'giang_vien', l.giang_vien,
-      'ma_lop', l.ma_lop,
-      'ma_hp', lp.ma_hp,
-      'ten_hp', h.ten_hp
-    ) order by l.thu, l.tiet_bat_dau)
-    from public.dangky k
-    join public.lophocphan lp on lp.ma_lop = k.ma_lop
-    join public.hocphan h on h.ma_hp = lp.ma_hp
-    join public.lichhoc l on l.ma_lop = lp.ma_lop
-    where k.ma_sv = v_ma_sv and k.trang_thai = 'HieuLuc'
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.lich_su_thao_tac(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_sv varchar;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_log', l.ma_log,
-      'thoi_gian', l.thoi_gian,
-      'loai_thao_tac', l.loai_thao_tac,
-      'ket_qua', l.ket_qua,
-      'ly_do', l.ly_do,
-      'ma_tk', l.ma_tk,
-      'ma_sv', l.ma_sv,
-      'ma_lop', l.ma_lop,
-      'ten_dang_nhap', n.ten_dang_nhap
-    ) order by l.thoi_gian desc, l.ma_log desc)
-    from public.nhatkythaotac l
-    join public.nguoidung n on n.ma_tk = l.ma_tk
-    where v_xt.vai_tro = 'PDT' or l.ma_tk = v_xt.ma_tk or (v_ma_sv is not null and l.ma_sv = v_ma_sv)
-    limit 500
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_cho(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_sv varchar;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
-  if v_ma_sv is null then
-    return '[]'::jsonb;
-  end if;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_ds', c.ma_ds,
-      'thoi_diem_vao', c.thoi_diem_vao,
-      'thu_tu', c.thu_tu,
-      'ma_sv', c.ma_sv,
-      'ma_lop', c.ma_lop,
-      'ma_hp', lp.ma_hp,
-      'ten_hp', h.ten_hp,
-      'con_cho', case when (
-        select count(*) from public.dangky k where k.ma_lop = c.ma_lop and k.trang_thai = 'HieuLuc'
-      ) < lp.suc_chua then 1 else 0 end,
-      'la_dau', case when c.thu_tu = (
-        select min(c2.thu_tu) from public.danhsachcho c2 where c2.ma_lop = c.ma_lop
-      ) then 1 else 0 end,
-      'ho_ten', s.ho_ten
-    ) order by c.thoi_diem_vao)
-    from public.danhsachcho c
-    join public.lophocphan lp on lp.ma_lop = c.ma_lop
-    join public.hocphan h on h.ma_hp = lp.ma_hp
-    join public.sinhvien s on s.ma_sv = c.ma_sv
-    where c.ma_sv = v_ma_sv
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.danh_sach_cho_lop(p_token text, p_ma_lop text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_ds', c.ma_ds,
-      'thoi_diem_vao', c.thoi_diem_vao,
-      'thu_tu', c.thu_tu,
-      'ma_sv', c.ma_sv,
-      'ma_lop', c.ma_lop,
-      'ma_hp', lp.ma_hp,
-      'ten_hp', h.ten_hp,
-      'con_cho', case when (
-        select count(*) from public.dangky k where k.ma_lop = c.ma_lop and k.trang_thai = 'HieuLuc'
-      ) < lp.suc_chua then 1 else 0 end,
-      'la_dau', case when c.thu_tu = (
-        select min(c2.thu_tu) from public.danhsachcho c2 where c2.ma_lop = c.ma_lop
-      ) then 1 else 0 end,
-      'ho_ten', s.ho_ten
-    ) order by c.thu_tu)
-    from public.danhsachcho c
-    join public.lophocphan lp on lp.ma_lop = c.ma_lop
-    join public.hocphan h on h.ma_hp = lp.ma_hp
-    join public.sinhvien s on s.ma_sv = c.ma_sv
-    where c.ma_lop = p_ma_lop
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.ctdt_cua_sinh_vien(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_sv public.sinhvien%rowtype;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  select * into v_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
-  if not found then
-    return '[]'::jsonb;
-  end if;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_ctdt', ct.ma_ctdt,
-      'ma_hp', ct.ma_hp,
-      'hoc_ky_du_kien', ct.hoc_ky_du_kien,
-      'ten_hp', h.ten_hp,
-      'so_tin_chi', h.so_tin_chi,
-      'da_dat', exists (
-        select 1 from public.ketquahoctap k
-        where k.ma_sv = v_sv.ma_sv and k.ma_hp = ct.ma_hp and k.diem >= 4
-      )
-    ) order by ct.hoc_ky_du_kien, ct.ma_hp)
-    from public.ctdt_hocphan ct
-    join public.hocphan h on h.ma_hp = ct.ma_hp
-    where ct.ma_ctdt = v_sv.ma_ctdt
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.ket_qua_cua_sinh_vien(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_sv varchar;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
-  if v_ma_sv is null then
-    return '[]'::jsonb;
-  end if;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'ma_kq', k.ma_kq,
-      'hoc_ky', k.hoc_ky,
-      'diem', k.diem,
-      'ma_sv', k.ma_sv,
-      'ho_ten', s.ho_ten,
-      'ma_hp', k.ma_hp,
-      'ten_hp', h.ten_hp
-    ) order by k.hoc_ky, k.ma_hp)
-    from public.ketquahoctap k
-    join public.sinhvien s on s.ma_sv = k.ma_sv
-    join public.hocphan h on h.ma_hp = k.ma_hp
-    where k.ma_sv = v_ma_sv
-  ), '[]'::jsonb);
-end;
-$$;
-
-create or replace function public.luu_khoa(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  if coalesce(trim(p_du_lieu ->> 'ma_khoa'), '') = '' or coalesce(trim(p_du_lieu ->> 'ten_khoa'), '') = '' then
-    raise exception 'Vui lòng nhập mã khoa và tên khoa';
-  end if;
-  insert into public.khoa (ma_khoa, ten_khoa)
-  values (trim(p_du_lieu ->> 'ma_khoa'), trim(p_du_lieu ->> 'ten_khoa'))
-  on conflict (ma_khoa) do update set ten_khoa = excluded.ten_khoa;
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuChuongTrinh', 'ThanhCong', v_ma_ctdt, null, null);
   return jsonb_build_object('ok', true);
 end;
-$$;
+$function$
+;
 
-create or replace function public.xoa_khoa(p_token text, p_ma_khoa text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.luu_dot(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
+  v_ma_dot text := trim(coalesce(p_du_lieu ->> 'ma_dot', ''));
+  v_nhom jsonb;
 begin
   select * into v_xt from public.xac_thuc_token(p_token);
   perform public._kiem_tra_pdt(v_xt.vai_tro);
-  begin
-    delete from public.khoa where ma_khoa = p_ma_khoa;
-  exception when foreign_key_violation then
-    raise exception 'Không thể xóa khoa vì đang được sử dụng';
-  end;
-  return jsonb_build_object('ok', true);
-end;
-$$;
 
-create or replace function public.luu_nhom(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  if coalesce(trim(p_du_lieu ->> 'ma_nhom'), '') = '' or coalesce(trim(p_du_lieu ->> 'ten_nhom'), '') = '' then
-    raise exception 'Vui lòng nhập mã nhóm và tên nhóm';
+  if (p_du_lieu ->> 'thoi_diem_dong')::timestamp <= (p_du_lieu ->> 'thoi_diem_mo')::timestamp then
+    raise exception 'Thời điểm đóng phải sau thời điểm mở';
   end if;
-  insert into public.nhomsinhvien (ma_nhom, ten_nhom, co_ghi_danh, ma_khoa)
+
+  insert into public.dotdangky (ma_dot, ten_dot, hoc_ky, nam_hoc, thoi_diem_mo, thoi_diem_dong, nguong_huy_lop)
   values (
-    trim(p_du_lieu ->> 'ma_nhom'),
-    trim(p_du_lieu ->> 'ten_nhom'),
-    coalesce((p_du_lieu ->> 'co_ghi_danh')::boolean, false),
-    p_du_lieu ->> 'ma_khoa'
+    v_ma_dot, trim(p_du_lieu ->> 'ten_dot'), p_du_lieu ->> 'hoc_ky', p_du_lieu ->> 'nam_hoc',
+    (p_du_lieu ->> 'thoi_diem_mo')::timestamp,
+    (p_du_lieu ->> 'thoi_diem_dong')::timestamp,
+    coalesce((p_du_lieu ->> 'nguong_huy_lop')::smallint, 15)
   )
-  on conflict (ma_nhom) do update set
-    ten_nhom = excluded.ten_nhom,
-    co_ghi_danh = excluded.co_ghi_danh,
-    ma_khoa = excluded.ma_khoa;
+  on conflict (ma_dot) do update set
+    ten_dot = excluded.ten_dot,
+    hoc_ky = excluded.hoc_ky,
+    nam_hoc = excluded.nam_hoc,
+    thoi_diem_mo = excluded.thoi_diem_mo,
+    thoi_diem_dong = excluded.thoi_diem_dong,
+    nguong_huy_lop = excluded.nguong_huy_lop;
+
+  delete from public.dotnhom where ma_dot = v_ma_dot;
+  for v_nhom in select * from jsonb_array_elements(coalesce(p_du_lieu -> 'nhom', '[]'::jsonb))
+  loop
+    insert into public.dotnhom (ma_dot, ma_nhom, co_ghi_danh)
+    values (v_ma_dot, v_nhom ->> 'ma_nhom', coalesce((v_nhom ->> 'co_ghi_danh')::boolean, false));
+  end loop;
+
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuDot', 'ThanhCong', v_ma_dot, null, null);
   return jsonb_build_object('ok', true);
 end;
-$$;
+$function$
+;
 
-create or replace function public.xoa_nhom(p_token text, p_ma_nhom text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  begin
-    delete from public.nhomsinhvien where ma_nhom = p_ma_nhom;
-  exception when foreign_key_violation then
-    raise exception 'Không thể xóa nhóm vì đang được sử dụng';
-  end;
-  return jsonb_build_object('ok', true);
-end;
-$$;
-
-create or replace function public.luu_sinh_vien(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_tk integer;
-  v_ma_sv text := trim(coalesce(p_du_lieu ->> 'ma_sv', ''));
-  v_mat_khau text := coalesce(p_du_lieu ->> 'mat_khau', 'Sv@12345');
-  v_ten_dang_nhap text := coalesce(nullif(trim(p_du_lieu ->> 'ten_dang_nhap'), ''), v_ma_sv);
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-
-  select ma_tk into v_ma_tk from public.sinhvien where ma_sv = v_ma_sv;
-
-  if v_ma_tk is null then
-    if length(v_mat_khau) < 8 then
-      raise exception 'Mật khẩu phải có ít nhất 8 ký tự';
-    end if;
-    insert into public.nguoidung (ten_dang_nhap, mat_khau_bam, vai_tro, trang_thai)
-    values (v_ten_dang_nhap, crypt(v_mat_khau, gen_salt('bf')), 'SV', 'HoatDong')
-    returning ma_tk into v_ma_tk;
-
-    insert into public.sinhvien (ma_sv, ho_ten, ngay_sinh, nien_khoa, trang_thai, ma_tk, ma_khoa, ma_nhom, ma_ctdt)
-    values (
-      v_ma_sv,
-      trim(p_du_lieu ->> 'ho_ten'),
-      (p_du_lieu ->> 'ngay_sinh')::date,
-      p_du_lieu ->> 'nien_khoa',
-      coalesce(nullif(p_du_lieu ->> 'trang_thai', ''), 'DangHoc'),
-      v_ma_tk,
-      p_du_lieu ->> 'ma_khoa',
-      nullif(p_du_lieu ->> 'ma_nhom', ''),
-      p_du_lieu ->> 'ma_ctdt'
-    );
-  else
-    update public.sinhvien set
-      ho_ten = trim(p_du_lieu ->> 'ho_ten'),
-      ngay_sinh = (p_du_lieu ->> 'ngay_sinh')::date,
-      nien_khoa = p_du_lieu ->> 'nien_khoa',
-      trang_thai = coalesce(nullif(p_du_lieu ->> 'trang_thai', ''), 'DangHoc'),
-      ma_khoa = p_du_lieu ->> 'ma_khoa',
-      ma_nhom = nullif(p_du_lieu ->> 'ma_nhom', ''),
-      ma_ctdt = p_du_lieu ->> 'ma_ctdt'
-    where ma_sv = v_ma_sv;
-
-    if nullif(p_du_lieu ->> 'mat_khau', '') is not null then
-      if length(v_mat_khau) < 8 then
-        raise exception 'Mật khẩu phải có ít nhất 8 ký tự';
-      end if;
-      update public.nguoidung set mat_khau_bam = crypt(v_mat_khau, gen_salt('bf')) where ma_tk = v_ma_tk;
-    end if;
-    update public.nguoidung set ten_dang_nhap = v_ten_dang_nhap where ma_tk = v_ma_tk;
-  end if;
-
-  perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuSinhVien', 'ThanhCong', v_ma_sv, v_ma_sv, null);
-  return jsonb_build_object('ok', true, 'ma_sv', v_ma_sv);
-end;
-$$;
-
-create or replace function public.luu_hoc_phan(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.luu_hoc_phan(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_ma_hp text := trim(coalesce(p_du_lieu ->> 'ma_hp', ''));
@@ -1430,69 +1343,74 @@ begin
   perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuHocPhan', 'ThanhCong', v_ma_hp, null, null);
   return jsonb_build_object('ok', true);
 end;
-$$;
+$function$
+;
 
-create or replace function public.xoa_hoc_phan(p_token text, p_ma_hp text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.luu_ket_qua(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_kq integer := nullif(p_du_lieu ->> 'ma_kq', '')::integer;
+  v_diem numeric := (p_du_lieu ->> 'diem')::numeric;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  if v_diem < 0 or v_diem > 10 then
+    raise exception 'Điểm phải nằm trong khoảng 0 đến 10';
+  end if;
+
+  if v_ma_kq is null then
+    insert into public.ketquahoctap (hoc_ky, diem, ma_sv, ma_hp)
+    values (p_du_lieu ->> 'hoc_ky', v_diem, p_du_lieu ->> 'ma_sv', p_du_lieu ->> 'ma_hp')
+    on conflict (ma_sv, ma_hp, hoc_ky) do update set diem = excluded.diem
+    returning ma_kq into v_ma_kq;
+  else
+    update public.ketquahoctap set
+      hoc_ky = p_du_lieu ->> 'hoc_ky',
+      diem = v_diem,
+      ma_sv = p_du_lieu ->> 'ma_sv',
+      ma_hp = p_du_lieu ->> 'ma_hp'
+    where ma_kq = v_ma_kq;
+  end if;
+
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuKetQua', 'ThanhCong', v_ma_kq::text, p_du_lieu ->> 'ma_sv', null);
+  return jsonb_build_object('ok', true, 'ma_kq', v_ma_kq);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.luu_khoa(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
 begin
   select * into v_xt from public.xac_thuc_token(p_token);
   perform public._kiem_tra_pdt(v_xt.vai_tro);
-  begin
-    delete from public.hocphan where ma_hp = p_ma_hp;
-  exception when foreign_key_violation then
-    raise exception 'Không thể xóa học phần vì đang được sử dụng';
-  end;
+  if coalesce(trim(p_du_lieu ->> 'ma_khoa'), '') = '' or coalesce(trim(p_du_lieu ->> 'ten_khoa'), '') = '' then
+    raise exception 'Vui lòng nhập mã khoa và tên khoa';
+  end if;
+  insert into public.khoa (ma_khoa, ten_khoa)
+  values (trim(p_du_lieu ->> 'ma_khoa'), trim(p_du_lieu ->> 'ten_khoa'))
+  on conflict (ma_khoa) do update set ten_khoa = excluded.ten_khoa;
   return jsonb_build_object('ok', true);
 end;
-$$;
+$function$
+;
 
-create or replace function public.luu_ctdt(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_ctdt text := trim(coalesce(p_du_lieu ->> 'ma_ctdt', ''));
-  v_mon jsonb;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-
-  insert into public.chuongtrinhdaotao (ma_ctdt, ten_ctdt, nien_khoa)
-  values (v_ma_ctdt, trim(p_du_lieu ->> 'ten_ctdt'), p_du_lieu ->> 'nien_khoa')
-  on conflict (ma_ctdt) do update set
-    ten_ctdt = excluded.ten_ctdt,
-    nien_khoa = excluded.nien_khoa;
-
-  delete from public.ctdt_hocphan where ma_ctdt = v_ma_ctdt;
-  for v_mon in select * from jsonb_array_elements(coalesce(p_du_lieu -> 'hoc_phan', '[]'::jsonb))
-  loop
-    insert into public.ctdt_hocphan (ma_ctdt, ma_hp, hoc_ky_du_kien)
-    values (v_ma_ctdt, v_mon ->> 'ma_hp', nullif(v_mon ->> 'hoc_ky_du_kien', '')::smallint);
-  end loop;
-
-  perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuChuongTrinh', 'ThanhCong', v_ma_ctdt, null, null);
-  return jsonb_build_object('ok', true);
-end;
-$$;
-
-create or replace function public.luu_lop(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.luu_lop(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_ma_lop text := trim(coalesce(p_du_lieu ->> 'ma_lop', ''));
@@ -1548,91 +1466,107 @@ begin
   perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuLop', 'ThanhCong', v_ma_lop, null, v_ma_lop);
   return jsonb_build_object('ok', true);
 end;
-$$;
+$function$
+;
 
-create or replace function public.huy_lop(p_token text, p_ma_lop text, p_ly_do text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.luu_nhom(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
-  v_lop public.lophocphan%rowtype;
 begin
   select * into v_xt from public.xac_thuc_token(p_token);
   perform public._kiem_tra_pdt(v_xt.vai_tro);
-  if coalesce(trim(p_ly_do), '') = '' then
-    raise exception 'Vui lòng nhập lý do hủy lớp';
+  if coalesce(trim(p_du_lieu ->> 'ma_nhom'), '') = '' or coalesce(trim(p_du_lieu ->> 'ten_nhom'), '') = '' then
+    raise exception 'Vui lòng nhập mã nhóm và tên nhóm';
   end if;
-  select * into v_lop from public.lophocphan where ma_lop = p_ma_lop;
-  if not found then
-    raise exception 'Không tìm thấy lớp học phần';
-  end if;
-  if v_lop.trang_thai = 'BiHuy' then
-    return jsonb_build_object('ok', true, 'message', 'Lớp đã được hủy trước đó');
-  end if;
-
-  update public.lophocphan set trang_thai = 'BiHuy' where ma_lop = p_ma_lop;
-  update public.dangky set trang_thai = 'LopBiHuy' where ma_lop = p_ma_lop and trang_thai = 'HieuLuc';
-  perform public._ghi_nhat_ky(v_xt.ma_tk, 'HuyLop', 'ThanhCong', trim(p_ly_do), null, p_ma_lop);
-  return jsonb_build_object('ok', true, 'message', 'Đã hủy lớp');
-end;
-$$;
-
-create or replace function public.luu_dot(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_dot text := trim(coalesce(p_du_lieu ->> 'ma_dot', ''));
-  v_nhom jsonb;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-
-  if (p_du_lieu ->> 'thoi_diem_dong')::timestamp <= (p_du_lieu ->> 'thoi_diem_mo')::timestamp then
-    raise exception 'Thời điểm đóng phải sau thời điểm mở';
-  end if;
-
-  insert into public.dotdangky (ma_dot, ten_dot, hoc_ky, nam_hoc, thoi_diem_mo, thoi_diem_dong, nguong_huy_lop)
+  insert into public.nhomsinhvien (ma_nhom, ten_nhom, ma_khoa)
   values (
-    v_ma_dot, trim(p_du_lieu ->> 'ten_dot'), p_du_lieu ->> 'hoc_ky', p_du_lieu ->> 'nam_hoc',
-    (p_du_lieu ->> 'thoi_diem_mo')::timestamp,
-    (p_du_lieu ->> 'thoi_diem_dong')::timestamp,
-    coalesce((p_du_lieu ->> 'nguong_huy_lop')::smallint, 15)
+    trim(p_du_lieu ->> 'ma_nhom'),
+    trim(p_du_lieu ->> 'ten_nhom'),
+    p_du_lieu ->> 'ma_khoa'
   )
-  on conflict (ma_dot) do update set
-    ten_dot = excluded.ten_dot,
-    hoc_ky = excluded.hoc_ky,
-    nam_hoc = excluded.nam_hoc,
-    thoi_diem_mo = excluded.thoi_diem_mo,
-    thoi_diem_dong = excluded.thoi_diem_dong,
-    nguong_huy_lop = excluded.nguong_huy_lop;
-
-  delete from public.dotnhom where ma_dot = v_ma_dot;
-  for v_nhom in select * from jsonb_array_elements(coalesce(p_du_lieu -> 'nhom', '[]'::jsonb))
-  loop
-    insert into public.dotnhom (ma_dot, ma_nhom) values (v_ma_dot, v_nhom ->> 'ma_nhom');
-  end loop;
-
-  perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuDot', 'ThanhCong', v_ma_dot, null, null);
+  on conflict (ma_nhom) do update set
+    ten_nhom = excluded.ten_nhom,
+    ma_khoa = excluded.ma_khoa;
   return jsonb_build_object('ok', true);
 end;
-$$;
+$function$
+;
 
-create or replace function public.luu_tai_khoan(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.luu_sinh_vien(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_tk integer;
+  v_ma_sv text := trim(coalesce(p_du_lieu ->> 'ma_sv', ''));
+  v_mat_khau text := coalesce(p_du_lieu ->> 'mat_khau', 'Sv@12345');
+  v_ten_dang_nhap text := coalesce(nullif(trim(p_du_lieu ->> 'ten_dang_nhap'), ''), v_ma_sv);
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+
+  select ma_tk into v_ma_tk from public.sinhvien where ma_sv = v_ma_sv;
+
+  if v_ma_tk is null then
+    if length(v_mat_khau) < 8 then
+      raise exception 'Mật khẩu phải có ít nhất 8 ký tự';
+    end if;
+    insert into public.nguoidung (ten_dang_nhap, mat_khau_bam, vai_tro, trang_thai)
+    values (v_ten_dang_nhap, crypt(v_mat_khau, gen_salt('bf')), 'SV', 'HoatDong')
+    returning ma_tk into v_ma_tk;
+
+    insert into public.sinhvien (ma_sv, ho_ten, ngay_sinh, nien_khoa, trang_thai, ma_tk, ma_khoa, ma_nhom, ma_ctdt)
+    values (
+      v_ma_sv,
+      trim(p_du_lieu ->> 'ho_ten'),
+      (p_du_lieu ->> 'ngay_sinh')::date,
+      p_du_lieu ->> 'nien_khoa',
+      coalesce(nullif(p_du_lieu ->> 'trang_thai', ''), 'DangHoc'),
+      v_ma_tk,
+      p_du_lieu ->> 'ma_khoa',
+      nullif(p_du_lieu ->> 'ma_nhom', ''),
+      p_du_lieu ->> 'ma_ctdt'
+    );
+  else
+    update public.sinhvien set
+      ho_ten = trim(p_du_lieu ->> 'ho_ten'),
+      ngay_sinh = (p_du_lieu ->> 'ngay_sinh')::date,
+      nien_khoa = p_du_lieu ->> 'nien_khoa',
+      trang_thai = coalesce(nullif(p_du_lieu ->> 'trang_thai', ''), 'DangHoc'),
+      ma_khoa = p_du_lieu ->> 'ma_khoa',
+      ma_nhom = nullif(p_du_lieu ->> 'ma_nhom', ''),
+      ma_ctdt = p_du_lieu ->> 'ma_ctdt'
+    where ma_sv = v_ma_sv;
+
+    if nullif(p_du_lieu ->> 'mat_khau', '') is not null then
+      if length(v_mat_khau) < 8 then
+        raise exception 'Mật khẩu phải có ít nhất 8 ký tự';
+      end if;
+      update public.nguoidung set mat_khau_bam = crypt(v_mat_khau, gen_salt('bf')) where ma_tk = v_ma_tk;
+    end if;
+    update public.nguoidung set ten_dang_nhap = v_ten_dang_nhap where ma_tk = v_ma_tk;
+  end if;
+
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuSinhVien', 'ThanhCong', v_ma_sv, v_ma_sv, null);
+  return jsonb_build_object('ok', true, 'ma_sv', v_ma_sv);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.luu_tai_khoan(p_token text, p_du_lieu jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_ma_tk integer := nullif(p_du_lieu ->> 'ma_tk', '')::integer;
@@ -1670,52 +1604,15 @@ begin
   perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuTaiKhoan', 'ThanhCong', v_ma_tk::text, null, null);
   return jsonb_build_object('ok', true, 'ma_tk', v_ma_tk);
 end;
-$$;
+$function$
+;
 
-create or replace function public.luu_ket_qua(p_token text, p_du_lieu jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
-declare
-  v_xt record;
-  v_ma_kq integer := nullif(p_du_lieu ->> 'ma_kq', '')::integer;
-  v_diem numeric := (p_du_lieu ->> 'diem')::numeric;
-begin
-  select * into v_xt from public.xac_thuc_token(p_token);
-  perform public._kiem_tra_pdt(v_xt.vai_tro);
-  if v_diem < 0 or v_diem > 10 then
-    raise exception 'Điểm phải nằm trong khoảng 0 đến 10';
-  end if;
-
-  if v_ma_kq is null then
-    insert into public.ketquahoctap (hoc_ky, diem, ma_sv, ma_hp)
-    values (p_du_lieu ->> 'hoc_ky', v_diem, p_du_lieu ->> 'ma_sv', p_du_lieu ->> 'ma_hp')
-    on conflict (ma_sv, ma_hp, hoc_ky) do update set diem = excluded.diem
-    returning ma_kq into v_ma_kq;
-  else
-    update public.ketquahoctap set
-      hoc_ky = p_du_lieu ->> 'hoc_ky',
-      diem = v_diem,
-      ma_sv = p_du_lieu ->> 'ma_sv',
-      ma_hp = p_du_lieu ->> 'ma_hp'
-    where ma_kq = v_ma_kq;
-  end if;
-
-  perform public._ghi_nhat_ky(v_xt.ma_tk, 'LuuKetQua', 'ThanhCong', v_ma_kq::text, p_du_lieu ->> 'ma_sv', null);
-  return jsonb_build_object('ok', true, 'ma_kq', v_ma_kq);
-end;
-$$;
-
-create or replace function public.nhap_lop(p_token text, p_ten_file text, p_dong jsonb)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.nhap_lop(p_token text, p_ten_file text, p_dong jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
   v_dong jsonb;
@@ -1782,15 +1679,145 @@ begin
 
   return jsonb_build_object('so_dong_dung', v_so_dung, 'so_dong_sai', v_so_sai, 'loi', v_loi);
 end;
-$$;
+$function$
+;
 
-create or replace function public.danh_sach_nhat_ky_import(p_token text)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
+CREATE OR REPLACE FUNCTION public.roi_danh_sach_cho(p_token text, p_ma_lop text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  if v_xt.vai_tro <> 'SV' then
+    raise exception 'Chỉ sinh viên mới sử dụng chức năng này';
+  end if;
+  v_ma_sv := public._ma_sv_cua(v_xt.ma_tk);
+  if v_ma_sv is null then
+    raise exception 'Tài khoản sinh viên không hợp lệ';
+  end if;
+  delete from public.danhsachcho where ma_sv = v_ma_sv and ma_lop = p_ma_lop;
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'RoiDanhSachCho', 'ThanhCong', '', v_ma_sv, p_ma_lop);
+  return jsonb_build_object('ok', true, 'message', 'Đã rời danh sách chờ');
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.thoi_khoa_bieu(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  select ma_sv into v_ma_sv from public.sinhvien where ma_tk = v_xt.ma_tk;
+  if v_ma_sv is null then
+    return '[]'::jsonb;
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_buoi', l.ma_buoi,
+      'thu', l.thu,
+      'tiet_bat_dau', l.tiet_bat_dau,
+      'tiet_ket_thuc', l.tiet_ket_thuc,
+      'phong_hoc', l.phong_hoc,
+      'giang_vien', l.giang_vien,
+      'ma_lop', l.ma_lop,
+      'ma_hp', lp.ma_hp,
+      'ten_hp', h.ten_hp,
+      'ma_dot', d.ma_dot,
+      'ten_dot', d.ten_dot,
+      'hoc_ky', d.hoc_ky,
+      'nam_hoc', d.nam_hoc,
+      'thoi_diem_mo', d.thoi_diem_mo
+    ) order by l.thu, l.tiet_bat_dau)
+    from public.dangky k
+    join public.lophocphan lp on lp.ma_lop = k.ma_lop
+    join public.hocphan h on h.ma_hp = lp.ma_hp
+    join public.dotdangky d on d.ma_dot = lp.ma_dot
+    join public.lichhoc l on l.ma_lop = lp.ma_lop
+    where k.ma_sv = v_ma_sv and k.trang_thai = 'HieuLuc'
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.thoi_khoa_bieu_du_kien(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ma_buoi', l.ma_buoi,
+      'thu', l.thu,
+      'tiet_bat_dau', l.tiet_bat_dau,
+      'tiet_ket_thuc', l.tiet_ket_thuc,
+      'phong_hoc', l.phong_hoc,
+      'giang_vien', l.giang_vien,
+      'ma_lop', lp.ma_lop,
+      'trang_thai', lp.trang_thai,
+      'ma_hp', lp.ma_hp,
+      'ten_hp', h.ten_hp,
+      'ma_dot', d.ma_dot,
+      'ten_dot', d.ten_dot,
+      'hoc_ky', d.hoc_ky,
+      'nam_hoc', d.nam_hoc,
+      'thoi_diem_mo', d.thoi_diem_mo
+    ) order by d.thoi_diem_mo desc, l.thu, l.tiet_bat_dau)
+    from public.lophocphan lp
+    join public.hocphan h on h.ma_hp = lp.ma_hp
+    join public.dotdangky d on d.ma_dot = lp.ma_dot
+    join public.lichhoc l on l.ma_lop = lp.ma_lop
+    where lp.trang_thai = 'Mo'
+      and d.thoi_diem_dong > now()
+  ), '[]'::jsonb);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.thong_ke(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  return jsonb_build_object(
+    'sinh_vien', (select count(*) from public.sinhvien),
+    'hoc_phan', (select count(*) from public.hocphan),
+    'lop', (select count(*) from public.lophocphan),
+    'dang_ky', (select count(*) from public.dangky where trang_thai = 'HieuLuc'),
+    'dot_mo', (select count(*) from public.dotdangky where now() >= thoi_diem_mo and now() < thoi_diem_dong),
+    'cho', (select count(*) from public.danhsachcho)
+  );
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.thong_ke_ghi_danh(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 declare
   v_xt record;
 begin
@@ -1798,61 +1825,276 @@ begin
   perform public._kiem_tra_pdt(v_xt.vai_tro);
   return coalesce((
     select jsonb_agg(jsonb_build_object(
-      'ma_import', i.ma_import, 'thoi_gian', i.thoi_gian, 'ten_file', i.ten_file,
-      'so_dong_dung', i.so_dong_dung, 'so_dong_sai', i.so_dong_sai,
-      'ten_dang_nhap', n.ten_dang_nhap
-    ) order by i.thoi_gian desc)
-    from public.nhatkyimport i join public.nguoidung n on n.ma_tk = i.ma_tk
+      'hoc_ky', t.hoc_ky,
+      'nam_hoc', t.nam_hoc,
+      'nien_khoa', t.nien_khoa,
+      'ma_hp', t.ma_hp,
+      'ten_hp', t.ten_hp,
+      'so_sinh_vien', t.so_sinh_vien
+    ) order by t.nam_hoc desc, t.hoc_ky, t.nien_khoa, t.ma_hp)
+    from (
+      select d.hoc_ky, d.nam_hoc, s.nien_khoa, g.ma_hp, h.ten_hp,
+             count(distinct g.ma_sv) as so_sinh_vien
+      from public.ghidanhhocphan g
+      join public.dotdangky d on d.ma_dot = g.ma_dot
+      join public.sinhvien s on s.ma_sv = g.ma_sv
+      join public.hocphan h on h.ma_hp = g.ma_hp
+      group by d.hoc_ky, d.nam_hoc, s.nien_khoa, g.ma_hp, h.ten_hp
+    ) t
   ), '[]'::jsonb);
 end;
-$$;
+$function$
+;
 
-revoke execute on all functions in schema public from public, anon, authenticated;
+CREATE OR REPLACE FUNCTION public.vao_danh_sach_cho(p_token text, p_ma_lop text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+  v_lop public.lophocphan%rowtype;
+  v_si_so integer;
+  v_thu_tu integer;
+  v_ma_ds integer;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  if v_xt.vai_tro <> 'SV' then
+    raise exception 'Chỉ sinh viên mới sử dụng chức năng này';
+  end if;
+  v_ma_sv := public._ma_sv_cua(v_xt.ma_tk);
+  if v_ma_sv is null then
+    raise exception 'Tài khoản sinh viên không hợp lệ';
+  end if;
 
-grant execute on function public.dang_nhap(text, text) to anon, authenticated;
-grant execute on function public.doi_mat_khau(text, text, text) to anon, authenticated;
-grant execute on function public.lay_ho_so(text) to anon, authenticated;
-grant execute on function public.thong_ke(text) to anon, authenticated;
-grant execute on function public.danh_sach_sinh_vien(text, text) to anon, authenticated;
-grant execute on function public.danh_sach_khoa(text) to anon, authenticated;
-grant execute on function public.danh_sach_nhom(text) to anon, authenticated;
-grant execute on function public.danh_sach_ctdt(text) to anon, authenticated;
-grant execute on function public.danh_sach_hoc_phan(text) to anon, authenticated;
-grant execute on function public.danh_sach_lop(text, text) to anon, authenticated;
-grant execute on function public.danh_sach_dot(text) to anon, authenticated;
-grant execute on function public.danh_sach_tai_khoan(text) to anon, authenticated;
-grant execute on function public.danh_sach_ket_qua(text, text) to anon, authenticated;
-grant execute on function public.lop_dang_mo(text) to anon, authenticated;
-grant execute on function public.chi_tiet_lop(text, text) to anon, authenticated;
-grant execute on function public.danh_sach_ghi_danh(text) to anon, authenticated;
-grant execute on function public.hoc_phan_da_dang_ky(text) to anon, authenticated;
-grant execute on function public.thoi_khoa_bieu(text) to anon, authenticated;
-grant execute on function public.lich_su_thao_tac(text) to anon, authenticated;
-grant execute on function public.danh_sach_cho(text) to anon, authenticated;
-grant execute on function public.danh_sach_cho_lop(text, text) to anon, authenticated;
-grant execute on function public.ctdt_cua_sinh_vien(text) to anon, authenticated;
-grant execute on function public.ket_qua_cua_sinh_vien(text) to anon, authenticated;
-grant execute on function public.dot_cua_sinh_vien(text) to anon, authenticated;
-grant execute on function public.dang_ky(text, text) to anon, authenticated;
-grant execute on function public.dang_ky_ho(text, text, text, text) to anon, authenticated;
-grant execute on function public.huy_dang_ky(text, integer, text) to anon, authenticated;
-grant execute on function public.vao_danh_sach_cho(text, text) to anon, authenticated;
-grant execute on function public.xac_nhan_cho(text, text) to anon, authenticated;
-grant execute on function public.roi_danh_sach_cho(text, text) to anon, authenticated;
-grant execute on function public.ghi_danh_hoc_phan(text, text, text) to anon, authenticated;
-grant execute on function public.xu_ly_sau_dot(text, text) to anon, authenticated;
-grant execute on function public.luu_khoa(text, jsonb) to anon, authenticated;
-grant execute on function public.xoa_khoa(text, text) to anon, authenticated;
-grant execute on function public.luu_nhom(text, jsonb) to anon, authenticated;
-grant execute on function public.xoa_nhom(text, text) to anon, authenticated;
-grant execute on function public.luu_sinh_vien(text, jsonb) to anon, authenticated;
-grant execute on function public.luu_hoc_phan(text, jsonb) to anon, authenticated;
-grant execute on function public.xoa_hoc_phan(text, text) to anon, authenticated;
-grant execute on function public.luu_ctdt(text, jsonb) to anon, authenticated;
-grant execute on function public.luu_lop(text, jsonb) to anon, authenticated;
-grant execute on function public.huy_lop(text, text, text) to anon, authenticated;
-grant execute on function public.luu_dot(text, jsonb) to anon, authenticated;
-grant execute on function public.luu_tai_khoan(text, jsonb) to anon, authenticated;
-grant execute on function public.luu_ket_qua(text, jsonb) to anon, authenticated;
-grant execute on function public.nhap_lop(text, text, jsonb) to anon, authenticated;
-grant execute on function public.danh_sach_nhat_ky_import(text) to anon, authenticated;
+  select * into v_lop from public.lophocphan where ma_lop = p_ma_lop;
+  if not found then
+    raise exception 'Không tìm thấy lớp học phần';
+  end if;
+  if v_lop.trang_thai <> 'Mo' then
+    raise exception 'Lớp học phần đã đóng hoặc đã bị hủy';
+  end if;
+  if exists (
+    select 1 from public.dangky k
+    where k.ma_lop = p_ma_lop and k.ma_sv = v_ma_sv and k.trang_thai = 'HieuLuc'
+  ) then
+    raise exception 'Bạn đã đăng ký lớp học phần này';
+  end if;
+
+  select count(*) into v_si_so from public.dangky where ma_lop = p_ma_lop and trang_thai = 'HieuLuc';
+  if v_si_so < v_lop.suc_chua then
+    raise exception 'Lớp còn chỗ, vui lòng đăng ký trực tiếp';
+  end if;
+  if exists (select 1 from public.danhsachcho where ma_sv = v_ma_sv and ma_lop = p_ma_lop) then
+    raise exception 'Bạn đã có trong danh sách chờ của lớp này';
+  end if;
+
+  select coalesce(max(thu_tu), 0) + 1 into v_thu_tu from public.danhsachcho where ma_lop = p_ma_lop;
+  insert into public.danhsachcho (thu_tu, ma_sv, ma_lop)
+  values (v_thu_tu, v_ma_sv, p_ma_lop)
+  returning ma_ds into v_ma_ds;
+
+  perform public._ghi_nhat_ky(v_xt.ma_tk, 'VaoDanhSachCho', 'ThanhCong', 'Vị trí ' || v_thu_tu, v_ma_sv, p_ma_lop);
+  return jsonb_build_object('ok', true, 'thu_tu', v_thu_tu, 'message', 'Đã vào danh sách chờ');
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.xac_nhan_cho(p_token text, p_ma_lop text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_ma_sv varchar;
+  v_dau varchar;
+  v_kq jsonb;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  if v_xt.vai_tro <> 'SV' then
+    raise exception 'Chỉ sinh viên mới sử dụng chức năng này';
+  end if;
+  v_ma_sv := public._ma_sv_cua(v_xt.ma_tk);
+
+  select ma_sv into v_dau from public.danhsachcho
+  where ma_lop = p_ma_lop order by thu_tu limit 1;
+  if v_dau is null or v_dau <> v_ma_sv then
+    raise exception 'Bạn chưa phải người đầu tiên trong danh sách chờ';
+  end if;
+
+  v_kq := public._dang_ky(v_xt.ma_tk, v_xt.vai_tro, v_ma_sv, p_ma_lop, false, 'Xác nhận từ danh sách chờ');
+  if (v_kq ->> 'ok')::boolean then
+    delete from public.danhsachcho where ma_sv = v_ma_sv and ma_lop = p_ma_lop;
+  end if;
+  return v_kq;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.xac_thuc_token(p_token text)
+ RETURNS TABLE(ma_tk integer, vai_tro text)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+declare
+  v_payload_chuoi text;
+  v_chu_ky text;
+  v_payload jsonb;
+  v_nd public.nguoidung%rowtype;
+begin
+  if p_token is null or p_token !~ '^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$' then
+    raise exception 'Phiên đăng nhập đã hết hạn';
+  end if;
+
+  v_payload_chuoi := split_part(p_token, '.', 1);
+  v_chu_ky := split_part(p_token, '.', 2);
+
+  if v_chu_ky <> public._b64url_encode(hmac(v_payload_chuoi, public._khoa_ky(), 'sha256')) then
+    raise exception 'Phiên đăng nhập đã hết hạn';
+  end if;
+
+  begin
+    v_payload := convert_from(public._b64url_decode(v_payload_chuoi), 'utf8')::jsonb;
+  exception when others then
+    raise exception 'Phiên đăng nhập đã hết hạn';
+  end;
+
+  if v_payload is null
+     or (v_payload ->> 'het_han') is null
+     or (v_payload ->> 'het_han')::bigint <= extract(epoch from now())::bigint then
+    raise exception 'Phiên đăng nhập đã hết hạn';
+  end if;
+
+  select * into v_nd from public.nguoidung n
+  where n.ma_tk = (v_payload ->> 'ma_tk')::integer;
+
+  if not found
+     or v_nd.vai_tro <> (v_payload ->> 'vai_tro')
+     or v_nd.trang_thai <> 'HoatDong' then
+    raise exception 'Phiên đăng nhập đã hết hạn';
+  end if;
+
+  ma_tk := v_nd.ma_tk;
+  vai_tro := v_nd.vai_tro;
+  return next;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.xoa_hoc_phan(p_token text, p_ma_hp text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  begin
+    delete from public.hocphan where ma_hp = p_ma_hp;
+  exception when foreign_key_violation then
+    raise exception 'Không thể xóa học phần vì đang được sử dụng';
+  end;
+  return jsonb_build_object('ok', true);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.xoa_khoa(p_token text, p_ma_khoa text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  begin
+    delete from public.khoa where ma_khoa = p_ma_khoa;
+  exception when foreign_key_violation then
+    raise exception 'Không thể xóa khoa vì đang được sử dụng';
+  end;
+  return jsonb_build_object('ok', true);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.xoa_nhom(p_token text, p_ma_nhom text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  begin
+    delete from public.nhomsinhvien where ma_nhom = p_ma_nhom;
+  exception when foreign_key_violation then
+    raise exception 'Không thể xóa nhóm vì đang được sử dụng';
+  end;
+  return jsonb_build_object('ok', true);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.xu_ly_sau_dot(p_token text, p_ma_dot text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_xt record;
+  v_dot public.dotdangky%rowtype;
+  v_lop public.lophocphan%rowtype;
+  v_si_so integer;
+  v_so_lop integer := 0;
+  v_so_dang_ky integer := 0;
+begin
+  select * into v_xt from public.xac_thuc_token(p_token);
+  perform public._kiem_tra_pdt(v_xt.vai_tro);
+  select * into v_dot from public.dotdangky where ma_dot = p_ma_dot;
+  if not found then
+    raise exception 'Không tìm thấy đợt đăng ký';
+  end if;
+  if now() < v_dot.thoi_diem_dong then
+    raise exception 'Đợt đăng ký chưa kết thúc';
+  end if;
+
+  for v_lop in
+    select * from public.lophocphan where ma_dot = p_ma_dot and trang_thai = 'Mo'
+  loop
+    select count(*) into v_si_so from public.dangky
+    where ma_lop = v_lop.ma_lop and trang_thai = 'HieuLuc';
+    if v_si_so < v_dot.nguong_huy_lop then
+      update public.lophocphan set trang_thai = 'BiHuy' where ma_lop = v_lop.ma_lop;
+      update public.dangky set trang_thai = 'LopBiHuy'
+      where ma_lop = v_lop.ma_lop and trang_thai = 'HieuLuc';
+      get diagnostics v_si_so = row_count;
+      delete from public.danhsachcho where ma_lop = v_lop.ma_lop;
+      v_so_dang_ky := v_so_dang_ky + v_si_so;
+      perform public._ghi_nhat_ky(
+        v_xt.ma_tk, 'XuLySauDot', 'ThanhCong',
+        v_lop.ma_lop || ': sĩ số ' || v_si_so || ' dưới ngưỡng ' || v_dot.nguong_huy_lop,
+        null, v_lop.ma_lop
+      );
+      v_so_lop := v_so_lop + 1;
+    end if;
+  end loop;
+
+  return jsonb_build_object('so_lop_huy', v_so_lop, 'so_dang_ky_huy', v_so_dang_ky);
+end;
+$function$
+;

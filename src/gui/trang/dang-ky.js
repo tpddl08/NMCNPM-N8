@@ -316,7 +316,7 @@ async function ketQuaDangKy() {
             website.gui.esc(x.ma_lop),
             website.gui.esc(x.ten_hp || ""),
             x.ok ? '<span class="tag tag-ok">Thành công</span>' : '<span class="tag tag-off">Từ chối</span>',
-            website.gui.esc(x.message)
+            website.gui.esc(x.ok ? x.message : website.gui.thongDiepLoi(x.message))
           ]))}
         </div>
         <div class="card-body page-actions">
@@ -518,7 +518,11 @@ async function danhSachCho() {
       document.querySelectorAll("[data-xac-nhan]").forEach((nut) => {
         nut.addEventListener("click", () => website.gui.chayNut(nut, async () => {
           const kq = await new website.bus.BusDanhSachCho().xacNhan(nut.dataset.xacNhan);
-          website.gui.thongBao(kq.message);
+          if (!kq.ok) {
+            website.gui.thongBao(website.gui.thongDiepLoi(kq.message), "loi");
+            return;
+          }
+          website.gui.thongBao(kq.message || "Đã xác nhận đăng ký. Danh sách học phần đã được cập nhật.");
           location.reload();
         }));
       });
@@ -623,9 +627,10 @@ async function dangKyHo() {
             website.gui.$("#cboLopHo").value,
             website.gui.$("#txtLyDoHo").value
           );
-          website.gui.$("#ketQuaHo").innerHTML = `<div class="alert ${kq.ok ? "alert-success" : "alert-danger"}">${website.gui.esc(kq.message)}</div>`;
+          const thongDiep = kq.ok ? kq.message : website.gui.thongDiepLoi(kq.message);
+          website.gui.$("#ketQuaHo").innerHTML = `<div class="alert ${kq.ok ? "alert-success" : "alert-danger"}">${website.gui.esc(thongDiep)}</div>`;
           if (kq.ok) website.gui.thongBao("Đăng ký hộ thành công");
-          else website.gui.thongBao(kq.message, "loi");
+          else website.gui.thongBao(thongDiep, "loi");
         });
       });
     }

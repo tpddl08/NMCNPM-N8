@@ -86,9 +86,9 @@ async function veTrang() {
     dangChay = true;
     try {
       hoSo = await new website.bus.BusTaiKhoan().layHoSo();
-    } catch {
-      website.phien.xoaToken();
-      website.trang.veDangNhap("Phiên đăng nhập đã hết hạn");
+    } catch (loi) {
+      if (loi?.name === "LoiPhien") website.phien.xoaToken();
+      website.trang.veDangNhap(website.gui.thongDiepLoi(loi));
       dangChay = false;
       return;
     } finally {
@@ -130,9 +130,10 @@ async function veTrang() {
       website.trang.veDangNhap("Phiên đăng nhập đã hết hạn");
       return;
     }
+    const thongDiep = website.gui.thongDiepLoi(loi);
     document.body.innerHTML = website.gui.dungKhung(hoSo, "Không tải được trang", `
       <section class="card"><div class="card-body">
-        <div class="alert alert-danger">${loi.message || "Có lỗi xảy ra"}</div>
+        <div class="alert alert-danger">${website.gui.esc(thongDiep)} Nếu lỗi vẫn tiếp diễn, hãy thử tải lại trang hoặc liên hệ Phòng đào tạo.</div>
         <a class="btn btn-primary" href="#/${trangMacDinh(hoSo.vaiTro)}">Về trang chính</a>
       </div></section>
     `, duong);

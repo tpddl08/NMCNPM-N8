@@ -1,230 +1,238 @@
-truncate table
-  public.nhatkythaotac,
-  public.nhatkyimport,
-  public.ketquahoctap,
-  public.ghidanhhocphan,
-  public.danhsachcho,
-  public.dangky,
-  public.lichhoc,
-  public.lophocphan,
-  public.dotnhom,
-  public.dotdangky,
-  public.tienquyet,
-  public.ctdt_hocphan,
-  public.hocphan,
-  public.sinhvien,
-  public.chuongtrinhdaotao,
-  public.nhomsinhvien,
-  public.khoa,
-  public.nguoidung
-restart identity cascade;
-
-insert into public.khoa (ma_khoa, ten_khoa) values
-  ('K.CNTT', 'Khoa Công nghệ thông tin'),
-  ('K.KT', 'Khoa Kinh tế');
-
-insert into public.nhomsinhvien (ma_nhom, ten_nhom, co_ghi_danh, ma_khoa) values
-  ('N01', 'Nhóm 01 - Công nghệ phần mềm', true, 'K.CNTT'),
-  ('N02', 'Nhóm 02 - Hệ thống thông tin', true, 'K.CNTT'),
-  ('N03', 'Nhóm 03 - Khoa học dữ liệu', false, 'K.CNTT'),
-  ('N04', 'Nhóm 04 - Kinh tế số', true, 'K.KT');
-
-insert into public.chuongtrinhdaotao (ma_ctdt, ten_ctdt, nien_khoa) values
-  ('CT01', 'Công nghệ thông tin', '2024-2028'),
-  ('CT02', 'Kinh tế số', '2024-2028');
-
-insert into public.hocphan (ma_hp, ten_hp, so_tin_chi) values
-  ('COMP1001', 'Nhập môn lập trình', 3),
-  ('COMP1002', 'Cấu trúc dữ liệu và giải thuật', 3),
-  ('COMP1003', 'Cơ sở dữ liệu', 3),
-  ('COMP1004', 'Lập trình web', 3),
-  ('COMP1005', 'Kỹ thuật phần mềm', 3),
-  ('COMP2001', 'Trí tuệ nhân tạo', 3),
-  ('COMP2002', 'Mạng máy tính', 3),
-  ('COMP2003', 'An toàn thông tin', 3),
-  ('MATH1001', 'Giải tích', 4),
-  ('MATH1002', 'Đại số tuyến tính', 3),
-  ('EDU1001', 'Tâm lý học giáo dục', 2),
-  ('PHYS1001', 'Vật lý đại cương', 3);
-
-insert into public.tienquyet (ma_hp, ma_hp_tien_quyet, loai_rang_buoc) values
-  ('COMP1002', 'COMP1001', 'TienQuyet'),
-  ('COMP1003', 'COMP1002', 'HocTruoc'),
-  ('COMP1004', 'COMP1001', 'TienQuyet'),
-  ('COMP1004', 'COMP1003', 'HocTruoc'),
-  ('COMP1005', 'COMP1002', 'TienQuyet'),
-  ('COMP2001', 'COMP1002', 'TienQuyet'),
-  ('COMP2002', 'COMP1001', 'TienQuyet'),
-  ('COMP2003', 'COMP2002', 'HocTruoc');
-
-insert into public.ctdt_hocphan (ma_ctdt, ma_hp, hoc_ky_du_kien) values
-  ('CT01', 'COMP1001', 1),
-  ('CT01', 'MATH1001', 1),
-  ('CT01', 'COMP1002', 2),
-  ('CT01', 'MATH1002', 2),
-  ('CT01', 'COMP1003', 3),
-  ('CT01', 'COMP2002', 3),
-  ('CT01', 'COMP1004', 4),
-  ('CT01', 'COMP1005', 4),
-  ('CT01', 'COMP2001', 5),
-  ('CT01', 'COMP2003', 5),
-  ('CT02', 'COMP1001', 1),
-  ('CT02', 'EDU1001', 1),
-  ('CT02', 'PHYS1001', 2),
-  ('CT02', 'MATH1002', 2);
-
-insert into public.dotdangky (ma_dot, ten_dot, hoc_ky, nam_hoc, thoi_diem_mo, thoi_diem_dong, nguong_huy_lop) values
-  ('DOT01', 'Đợt đăng ký học kỳ 1', 'HK1', '2026-2027', now() - interval '1 day', now() + interval '7 days', 15),
-  ('DOT00', 'Đợt đăng ký học kỳ hè', 'HK3', '2025-2026', now() - interval '30 days', now() - interval '1 day', 15),
-  ('DOT02', 'Đợt đăng ký học kỳ 2', 'HK2', '2026-2027', now() + interval '10 days', now() + interval '20 days', 15);
-
-insert into public.dotnhom (ma_dot, ma_nhom) values
-  ('DOT01', 'N01'), ('DOT01', 'N02'), ('DOT01', 'N03'),
-  ('DOT00', 'N01'), ('DOT00', 'N02'), ('DOT00', 'N03'),
-  ('DOT02', 'N01');
-
-insert into public.nguoidung (ten_dang_nhap, mat_khau_bam, vai_tro, trang_thai)
-values ('pdt.n8', crypt('Pdt@12345', gen_salt('bf')), 'PDT', 'HoatDong');
-
-do $$
-declare
-  r record;
-  v_ma_tk integer;
-begin
-  for r in
-    select * from (values
-      ('48.01.001.001', 'Nguyễn An Bình', date '2006-01-12', 'N01', 'K.CNTT', 'CT01'),
-      ('48.01.001.002', 'Trần Bảo Châu', date '2006-02-08', 'N01', 'K.CNTT', 'CT01'),
-      ('48.01.001.003', 'Lê Minh Đức', date '2006-03-21', 'N01', 'K.CNTT', 'CT01'),
-      ('48.01.001.004', 'Phạm Gia Hân', date '2006-04-05', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.005', 'Hoàng Khánh Linh', date '2006-05-17', 'N03', 'K.CNTT', 'CT01'),
-      ('48.01.001.006', 'Vũ Minh Khang', date '2006-06-23', 'N01', 'K.CNTT', 'CT01'),
-      ('48.01.001.007', 'Đặng Ngọc Mai', date '2006-07-09', 'N01', 'K.CNTT', 'CT01'),
-      ('48.01.001.008', 'Bùi Quốc Nam', date '2006-08-30', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.009', 'Đỗ Thu Trang', date '2006-09-14', 'N01', 'K.CNTT', 'CT01'),
-      ('48.01.001.010', 'Ngô Văn Tú', date '2006-10-02', 'N04', 'K.KT', 'CT02'),
-      ('48.01.001.011', 'Đinh Bảo An', date '2006-01-19', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.012', 'Lý Hoàng Ân', date '2006-02-26', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.013', 'Mai Thị Bích', date '2006-03-03', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.014', 'Tạ Quang Cường', date '2006-04-11', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.015', 'Phan Diệu Hương', date '2006-05-25', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.016', 'Cao Minh Khoa', date '2006-06-06', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.017', 'Dương Thanh Lam', date '2006-07-18', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.018', 'Hồ Nhật Minh', date '2006-08-04', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.019', 'Lâm Yến Nhi', date '2006-09-27', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.020', 'Trịnh Hải Phong', date '2006-10-13', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.021', 'Võ Thùy Quyên', date '2006-11-01', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.022', 'Đoàn Gia Sang', date '2006-11-22', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.023', 'Nguyễn Thanh Tâm', date '2006-12-07', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.024', 'Trương Anh Thư', date '2006-12-19', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.025', 'Lưu Hoàng Vũ', date '2006-01-28', 'N02', 'K.CNTT', 'CT01'),
-      ('48.01.001.026', 'Phùng Bảo Yến', date '2006-02-16', 'N02', 'K.CNTT', 'CT01')
-    ) as s(ma_sv, ho_ten, ngay_sinh, ma_nhom, ma_khoa, ma_ctdt)
-  loop
-    insert into public.nguoidung (ten_dang_nhap, mat_khau_bam, vai_tro, trang_thai)
-    values (r.ma_sv, crypt('Sv@12345', gen_salt('bf')), 'SV', 'HoatDong')
-    returning ma_tk into v_ma_tk;
-
-    insert into public.sinhvien (ma_sv, ho_ten, ngay_sinh, nien_khoa, trang_thai, ma_tk, ma_khoa, ma_nhom, ma_ctdt)
-    values (r.ma_sv, r.ho_ten, r.ngay_sinh, '2024-2028', 'DangHoc', v_ma_tk, r.ma_khoa, r.ma_nhom, r.ma_ctdt);
-  end loop;
-end $$;
-
-insert into public.lophocphan (ma_lop, suc_chua, trang_thai, ma_hp, ma_dot) values
-  ('26COMP100101', 40, 'Mo', 'COMP1001', 'DOT01'),
-  ('26COMP100102', 40, 'Mo', 'COMP1001', 'DOT01'),
-  ('26COMP100201', 30, 'Mo', 'COMP1002', 'DOT01'),
-  ('26COMP100202', 30, 'Mo', 'COMP1002', 'DOT01'),
-  ('26COMP100301', 25, 'Mo', 'COMP1003', 'DOT01'),
-  ('26COMP100401', 20, 'Mo', 'COMP1004', 'DOT01'),
-  ('26COMP100501', 25, 'Mo', 'COMP1005', 'DOT01'),
-  ('26COMP200101', 15, 'Mo', 'COMP2001', 'DOT01'),
-  ('26MATH100101', 50, 'Mo', 'MATH1001', 'DOT01'),
-  ('26MATH100201', 40, 'Mo', 'MATH1002', 'DOT01'),
-  ('26COMP200201', 30, 'Mo', 'COMP2002', 'DOT01'),
-  ('26COMP200301', 6, 'Mo', 'COMP2003', 'DOT01'),
-  ('25COMP100101', 30, 'Mo', 'COMP1001', 'DOT00'),
-  ('25MATH100101', 40, 'Mo', 'MATH1001', 'DOT00'),
-  ('25COMP100201', 20, 'Mo', 'COMP1002', 'DOT00'),
-  ('27COMP100101', 40, 'Mo', 'COMP1001', 'DOT02');
-
-insert into public.lichhoc (thu, tiet_bat_dau, tiet_ket_thuc, phong_hoc, giang_vien, ma_lop) values
-  (2, 2, 4, 'P.A101', 'TS. Nguyễn Văn An', '26COMP100101'),
-  (3, 2, 4, 'P.A102', 'TS. Nguyễn Văn An', '26COMP100102'),
-  (2, 2, 4, 'P.B201', 'TS. Trần Thị Bình', '26COMP100201'),
-  (4, 5, 7, 'P.B202', 'TS. Trần Thị Bình', '26COMP100202'),
-  (3, 5, 7, 'P.C301', 'TS. Lê Quang Cường', '26COMP100301'),
-  (5, 2, 4, 'P.C302', 'TS. Lê Quang Cường', '26COMP100401'),
-  (6, 5, 7, 'P.A103', 'TS. Phạm Thu Dung', '26COMP100501'),
-  (7, 2, 4, 'P.D401', 'TS. Phạm Thu Dung', '26COMP200101'),
-  (2, 5, 7, 'P.A104', 'TS. Hoàng Minh Đức', '26MATH100101'),
-  (4, 2, 4, 'P.A105', 'TS. Hoàng Minh Đức', '26MATH100201'),
-  (5, 5, 7, 'P.B203', 'TS. Vũ Thị Hoa', '26COMP200201'),
-  (6, 2, 4, 'P.C303', 'TS. Vũ Thị Hoa', '26COMP200301'),
-  (2, 2, 4, 'P.A101', 'TS. Nguyễn Văn An', '25COMP100101'),
-  (3, 5, 7, 'P.A102', 'TS. Nguyễn Văn An', '25MATH100101'),
-  (4, 2, 4, 'P.B201', 'TS. Trần Thị Bình', '25COMP100201'),
-  (2, 2, 4, 'P.A101', 'TS. Nguyễn Văn An', '27COMP100101');
-
-insert into public.ketquahoctap (hoc_ky, diem, ma_sv, ma_hp) values
-  ('HK1 2024-2025', 8.0, '48.01.001.001', 'COMP1001'),
-  ('HK1 2024-2025', 7.0, '48.01.001.002', 'COMP1001'),
-  ('HK2 2024-2025', 7.5, '48.01.001.002', 'COMP1002'),
-  ('HK1 2024-2025', 3.5, '48.01.001.003', 'COMP1001'),
-  ('HK1 2024-2025', 8.0, '48.01.001.004', 'COMP1001'),
-  ('HK2 2024-2025', 8.0, '48.01.001.004', 'COMP1002'),
-  ('HK1 2024-2025', 9.0, '48.01.001.005', 'COMP1001'),
-  ('HK2 2024-2025', 9.0, '48.01.001.005', 'COMP1002'),
-  ('HK1 2024-2025', 8.0, '48.01.001.006', 'COMP1001'),
-  ('HK1 2024-2025', 8.0, '48.01.001.007', 'COMP1001'),
-  ('HK2 2024-2025', 8.0, '48.01.001.007', 'COMP1002'),
-  ('HK1 2024-2025', 8.0, '48.01.001.008', 'COMP2002'),
-  ('HK1 2024-2025', 8.0, '48.01.001.009', 'COMP1001'),
-  ('HK2 2024-2025', 8.0, '48.01.001.009', 'COMP1002'),
-  ('HK2 2024-2025', 8.0, '48.01.001.009', 'COMP1003');
-
-insert into public.ghidanhhocphan (ma_sv, ma_hp, ma_dot) values
-  ('48.01.001.001', 'COMP1001', 'DOT01'),
-  ('48.01.001.001', 'COMP1002', 'DOT01'),
-  ('48.01.001.002', 'COMP1001', 'DOT01'),
-  ('48.01.001.003', 'COMP1002', 'DOT01'),
-  ('48.01.001.004', 'COMP2001', 'DOT01'),
-  ('48.01.001.006', 'COMP1002', 'DOT01'),
-  ('48.01.001.006', 'COMP1003', 'DOT01'),
-  ('48.01.001.007', 'COMP2001', 'DOT01'),
-  ('48.01.001.008', 'COMP2003', 'DOT01'),
-  ('48.01.001.009', 'COMP1003', 'DOT01'),
-  ('48.01.001.009', 'COMP1004', 'DOT01');
-
-insert into public.dangky (trang_thai, ma_sv, ma_lop) values
-  ('HieuLuc', '48.01.001.001', '26COMP100101'),
-  ('HieuLuc', '48.01.001.002', '26COMP100102'),
-  ('HieuLuc', '48.01.001.003', '26MATH100101');
-
-insert into public.dangky (trang_thai, ma_sv, ma_lop)
-select 'HieuLuc', s.ma_sv, '26COMP200101'
-from public.sinhvien s
-where s.ma_sv between '48.01.001.011' and '48.01.001.025';
-
-insert into public.dangky (trang_thai, ma_sv, ma_lop)
-select 'HieuLuc', s.ma_sv, '26COMP200301'
-from public.sinhvien s
-where s.ma_sv between '48.01.001.011' and '48.01.001.015';
-
-insert into public.dangky (trang_thai, ma_sv, ma_lop)
-select 'HieuLuc', s.ma_sv, '25COMP100101'
-from public.sinhvien s
-where s.ma_sv in ('48.01.001.001', '48.01.001.002', '48.01.001.003');
-
-insert into public.dangky (trang_thai, ma_sv, ma_lop)
-select 'HieuLuc', s.ma_sv, '25MATH100101'
-from public.sinhvien s
-where s.ma_sv between '48.01.001.011' and '48.01.001.025';
-
-insert into public.danhsachcho (thu_tu, ma_sv, ma_lop) values
-  (1, '48.01.001.004', '26COMP200101'),
-  (2, '48.01.001.006', '26COMP200101');
-
-insert into public.nhatkythaotac (loai_thao_tac, ket_qua, ly_do, ma_tk, ma_sv, ma_lop)
-select 'KhoiTaoDuLieu', 'ThanhCong', 'Nạp dữ liệu ban đầu', ma_tk, null, null
-from public.nguoidung where ten_dang_nhap = 'pdt.n8';
+insert into public.khoa overriding system value select * from json_populate_record(null::public.khoa, '{"ma_khoa":"K.CNTT","ten_khoa":"Khoa Công nghệ thông tin"}');
+insert into public.khoa overriding system value select * from json_populate_record(null::public.khoa, '{"ma_khoa":"K.KT","ten_khoa":"Khoa Kinh tế"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":18,"ten_dang_nhap":"50.01.001.017","mat_khau_bam":"$2a$06$xISTaXJHfoVYZBenmRJcLe8KFzYWDKIxxdpxU1Lday8o9AucDOKzK","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":19,"ten_dang_nhap":"50.01.001.018","mat_khau_bam":"$2a$06$EsxjHgG8ZMTk3aAW2vr4LuJw9YERQyIB3N3rycm1P5RmQABqOoljS","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":20,"ten_dang_nhap":"50.01.001.019","mat_khau_bam":"$2a$06$eSgToNswQi5ESu4d/DQxR.xT8/TSSEFwg65WIc/RlhCTecR8wQOsS","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":21,"ten_dang_nhap":"50.01.001.020","mat_khau_bam":"$2a$06$oNfauYxlgzf44iqTA9uFhuIZXLtc5A8w9//IG8wY6.MR65UnPhEku","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":22,"ten_dang_nhap":"50.01.001.021","mat_khau_bam":"$2a$06$Eotyx2n9jip6gSYxUAs2O.9OTdAjJ6S92sonoRHUz4mQjLfG3JkOC","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":23,"ten_dang_nhap":"50.01.001.022","mat_khau_bam":"$2a$06$dY7E.fIn5uRKsN5Rxoad2emv2toFEcjdTN/NV0qv3dJCUaciJ56Ka","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":25,"ten_dang_nhap":"50.01.001.024","mat_khau_bam":"$2a$06$tQJP9qjS2Wf0at/aXkBuv.TNYQjJ465lKN6ZC0kKFW/AfEU5E5.sa","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":26,"ten_dang_nhap":"50.01.001.025","mat_khau_bam":"$2a$06$ChIC7ldeqGHxaUIULI2WnuL.ZUvolwrw6R7gOfNWs8F/Bcx2McKS6","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":27,"ten_dang_nhap":"50.01.001.026","mat_khau_bam":"$2a$06$1D6mO.efa9h4zOAYjQqK4uvs/Gq09kd2KHQjpjZTSZ1FlNpZeKm1K","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":1,"ten_dang_nhap":"pdt.n8","mat_khau_bam":"$2a$06$HJLeDouJuTqtwgGzTpu9oOmsFcQFGIKc4Qb1v3E6SejEW2OuNYzIy","vai_tro":"PDT","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":2,"ten_dang_nhap":"50.01.001.001","mat_khau_bam":"$2a$06$mB4D0TFqOEEZffS7uq5UFedLF6Fk.6CHtW2/5ILqWlGxT6qMFdNS2","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":24,"ten_dang_nhap":"50.01.001.023","mat_khau_bam":"$2a$06$NBUBdMBXlnF1lF1cCJqa.OqG6/TT1/Ejy3Ci23DA8wJ0WDhgmmctm","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":3,"ten_dang_nhap":"50.01.001.002","mat_khau_bam":"$2a$06$eIfMWOGj8xP1wrSqcp6ndOPcDoQRC9XZEoSIO92h/A2zWgOQxr/0u","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":4,"ten_dang_nhap":"50.01.001.003","mat_khau_bam":"$2a$06$c62HezgeXPyZ3ipyE/XJReGKdAzYgZYN9nLjRkn3MOXp65Jrw6PI2","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":5,"ten_dang_nhap":"50.01.001.004","mat_khau_bam":"$2a$06$uheGmy6NfME.PylmJ0Gm2erGuNi43/Y6xhxe5boRFpXeooJADiYx6","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":6,"ten_dang_nhap":"50.01.001.005","mat_khau_bam":"$2a$06$fQmd4H/VWuJ0LPyxRVwh.euLBf0P/o6qPBnKZkDveD0E7gQaGlhOK","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":7,"ten_dang_nhap":"50.01.001.006","mat_khau_bam":"$2a$06$nD4Itvp/JYbMBt74hNJZB.6Q2P7dlfv7.GpyYVckiWY4Re1XhMF9S","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":8,"ten_dang_nhap":"50.01.001.007","mat_khau_bam":"$2a$06$cVP4cN7CqHs2D2gxcwqymeU2Y5tssgKR5KGQkBOs/KjvsgLAj0TtS","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":9,"ten_dang_nhap":"50.01.001.008","mat_khau_bam":"$2a$06$zoa2nc.kNQ/GMEigDPQ/ouEYcvTXYoiM9vNtOK6Ijl3dr3SQClyq.","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":10,"ten_dang_nhap":"50.01.001.009","mat_khau_bam":"$2a$06$GTkCIYCr3xBtDqDhMz1xCOEtWaOQNQxxej/QPW4Ole.d/Po683SVi","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":11,"ten_dang_nhap":"50.01.001.010","mat_khau_bam":"$2a$06$jch11dE///VuqQp.fPQVVuUkAeX87cg6/.VVHUdqQt6rZtIhjxWMe","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":12,"ten_dang_nhap":"50.01.001.011","mat_khau_bam":"$2a$06$Db8VdTHHIBjMEI2V7AjWQe9ZKk8a8OiH0bODcaypoZ7QDjxDYNlci","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":13,"ten_dang_nhap":"50.01.001.012","mat_khau_bam":"$2a$06$dj2GJrWjF5/bpEzW/R3w7.sbGvNTyHN7hKJWy5XZ8HILmpW7Vrl1G","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":14,"ten_dang_nhap":"50.01.001.013","mat_khau_bam":"$2a$06$tmNciRHXAGXL/vuX/0oIrOQLv1ELiZtJZJjCJIsONb/2X1ArbXMQq","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":15,"ten_dang_nhap":"50.01.001.014","mat_khau_bam":"$2a$06$0z4GqNglI2dID9jPTuB5zeg//YwDYi0/3Lsm8BMVGpdC5m36LTfNa","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":16,"ten_dang_nhap":"50.01.001.015","mat_khau_bam":"$2a$06$FY1e3Z.uCOhSuJyx9yZyZO08/Te5w346AUszygKbT8y.HPavHt7ne","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nguoidung overriding system value select * from json_populate_record(null::public.nguoidung, '{"ma_tk":17,"ten_dang_nhap":"50.01.001.016","mat_khau_bam":"$2a$06$7EA36uyAMtqExEzoWbppouYhB4ZurKFv7xKRrLLrwQm4cxHLps.em","vai_tro":"SV","trang_thai":"HoatDong"}');
+insert into public.nhomsinhvien overriding system value select * from json_populate_record(null::public.nhomsinhvien, '{"ma_nhom":"N01","ten_nhom":"Nhóm 01 - Công nghệ phần mềm","ma_khoa":"K.CNTT"}');
+insert into public.nhomsinhvien overriding system value select * from json_populate_record(null::public.nhomsinhvien, '{"ma_nhom":"N02","ten_nhom":"Nhóm 02 - Hệ thống thông tin","ma_khoa":"K.CNTT"}');
+insert into public.nhomsinhvien overriding system value select * from json_populate_record(null::public.nhomsinhvien, '{"ma_nhom":"N03","ten_nhom":"Nhóm 03 - Khoa học dữ liệu","ma_khoa":"K.CNTT"}');
+insert into public.nhomsinhvien overriding system value select * from json_populate_record(null::public.nhomsinhvien, '{"ma_nhom":"N04","ten_nhom":"Nhóm 04 - Kinh tế số","ma_khoa":"K.KT"}');
+insert into public.chuongtrinhdaotao overriding system value select * from json_populate_record(null::public.chuongtrinhdaotao, '{"ma_ctdt":"CT01","ten_ctdt":"Công nghệ thông tin","nien_khoa":"2024-2028"}');
+insert into public.chuongtrinhdaotao overriding system value select * from json_populate_record(null::public.chuongtrinhdaotao, '{"ma_ctdt":"CT02","ten_ctdt":"Kinh tế số","nien_khoa":"2024-2028"}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"COMP1001","ten_hp":"Nhập môn lập trình","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"COMP1002","ten_hp":"Cấu trúc dữ liệu và giải thuật","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"COMP1003","ten_hp":"Cơ sở dữ liệu","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"COMP1004","ten_hp":"Lập trình web","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"COMP1005","ten_hp":"Kỹ thuật phần mềm","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"COMP2001","ten_hp":"Trí tuệ nhân tạo","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"COMP2002","ten_hp":"Mạng máy tính","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"COMP2003","ten_hp":"An toàn thông tin","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"MATH1001","ten_hp":"Giải tích","so_tin_chi":4}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"MATH1002","ten_hp":"Đại số tuyến tính","so_tin_chi":3}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"EDU1001","ten_hp":"Tâm lý học giáo dục","so_tin_chi":2}');
+insert into public.hocphan overriding system value select * from json_populate_record(null::public.hocphan, '{"ma_hp":"PHYS1001","ten_hp":"Vật lý đại cương","so_tin_chi":3}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.005","ho_ten":"Hoàng Khánh Linh","ngay_sinh":"2006-05-17","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":6,"ma_khoa":"K.CNTT","ma_nhom":"N03","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.001","ho_ten":"Nguyễn An Bình","ngay_sinh":"2006-01-12","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":2,"ma_khoa":"K.CNTT","ma_nhom":"N01","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.002","ho_ten":"Trần Bảo Châu","ngay_sinh":"2006-02-08","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":3,"ma_khoa":"K.CNTT","ma_nhom":"N01","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.003","ho_ten":"Lê Minh Đức","ngay_sinh":"2006-03-21","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":4,"ma_khoa":"K.CNTT","ma_nhom":"N01","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.004","ho_ten":"Phạm Gia Hân","ngay_sinh":"2006-04-05","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":5,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.006","ho_ten":"Vũ Minh Khang","ngay_sinh":"2006-06-23","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":7,"ma_khoa":"K.CNTT","ma_nhom":"N01","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.007","ho_ten":"Đặng Ngọc Mai","ngay_sinh":"2006-07-09","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":8,"ma_khoa":"K.CNTT","ma_nhom":"N01","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.008","ho_ten":"Bùi Quốc Nam","ngay_sinh":"2006-08-30","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":9,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.009","ho_ten":"Đỗ Thu Trang","ngay_sinh":"2006-09-14","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":10,"ma_khoa":"K.CNTT","ma_nhom":"N01","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.010","ho_ten":"Ngô Văn Tú","ngay_sinh":"2006-10-02","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":11,"ma_khoa":"K.KT","ma_nhom":"N04","ma_ctdt":"CT02"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.011","ho_ten":"Đinh Bảo An","ngay_sinh":"2006-01-19","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":12,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.012","ho_ten":"Lý Hoàng Ân","ngay_sinh":"2006-02-26","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":13,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.013","ho_ten":"Mai Thị Bích","ngay_sinh":"2006-03-03","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":14,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.014","ho_ten":"Tạ Quang Cường","ngay_sinh":"2006-04-11","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":15,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.015","ho_ten":"Phan Diệu Hương","ngay_sinh":"2006-05-25","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":16,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.016","ho_ten":"Cao Minh Khoa","ngay_sinh":"2006-06-06","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":17,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.017","ho_ten":"Dương Thanh Lam","ngay_sinh":"2006-07-18","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":18,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.018","ho_ten":"Hồ Nhật Minh","ngay_sinh":"2006-08-04","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":19,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.019","ho_ten":"Lâm Yến Nhi","ngay_sinh":"2006-09-27","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":20,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.020","ho_ten":"Trịnh Hải Phong","ngay_sinh":"2006-10-13","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":21,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.021","ho_ten":"Võ Thùy Quyên","ngay_sinh":"2006-11-01","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":22,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.022","ho_ten":"Đoàn Gia Sang","ngay_sinh":"2006-11-22","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":23,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.023","ho_ten":"Nguyễn Thanh Tâm","ngay_sinh":"2006-12-07","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":24,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.024","ho_ten":"Trương Anh Thư","ngay_sinh":"2006-12-19","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":25,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.025","ho_ten":"Lưu Hoàng Vũ","ngay_sinh":"2006-01-28","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":26,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.sinhvien overriding system value select * from json_populate_record(null::public.sinhvien, '{"ma_sv":"50.01.001.026","ho_ten":"Phùng Bảo Yến","ngay_sinh":"2006-02-16","nien_khoa":"2024-2028","trang_thai":"DangHoc","ma_tk":27,"ma_khoa":"K.CNTT","ma_nhom":"N02","ma_ctdt":"CT01"}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"COMP1001","hoc_ky_du_kien":1}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"MATH1001","hoc_ky_du_kien":1}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"COMP1002","hoc_ky_du_kien":2}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"MATH1002","hoc_ky_du_kien":2}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"COMP1003","hoc_ky_du_kien":3}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"COMP2002","hoc_ky_du_kien":3}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"COMP1004","hoc_ky_du_kien":4}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"COMP1005","hoc_ky_du_kien":4}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"COMP2001","hoc_ky_du_kien":5}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT01","ma_hp":"COMP2003","hoc_ky_du_kien":5}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT02","ma_hp":"COMP1001","hoc_ky_du_kien":1}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT02","ma_hp":"EDU1001","hoc_ky_du_kien":1}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT02","ma_hp":"PHYS1001","hoc_ky_du_kien":2}');
+insert into public.ctdt_hocphan overriding system value select * from json_populate_record(null::public.ctdt_hocphan, '{"ma_ctdt":"CT02","ma_hp":"MATH1002","hoc_ky_du_kien":2}');
+insert into public.tienquyet overriding system value select * from json_populate_record(null::public.tienquyet, '{"ma_hp":"COMP1002","ma_hp_tien_quyet":"COMP1001","loai_rang_buoc":"TienQuyet"}');
+insert into public.tienquyet overriding system value select * from json_populate_record(null::public.tienquyet, '{"ma_hp":"COMP1003","ma_hp_tien_quyet":"COMP1002","loai_rang_buoc":"HocTruoc"}');
+insert into public.tienquyet overriding system value select * from json_populate_record(null::public.tienquyet, '{"ma_hp":"COMP1004","ma_hp_tien_quyet":"COMP1001","loai_rang_buoc":"TienQuyet"}');
+insert into public.tienquyet overriding system value select * from json_populate_record(null::public.tienquyet, '{"ma_hp":"COMP1004","ma_hp_tien_quyet":"COMP1003","loai_rang_buoc":"HocTruoc"}');
+insert into public.tienquyet overriding system value select * from json_populate_record(null::public.tienquyet, '{"ma_hp":"COMP1005","ma_hp_tien_quyet":"COMP1002","loai_rang_buoc":"TienQuyet"}');
+insert into public.tienquyet overriding system value select * from json_populate_record(null::public.tienquyet, '{"ma_hp":"COMP2001","ma_hp_tien_quyet":"COMP1002","loai_rang_buoc":"TienQuyet"}');
+insert into public.tienquyet overriding system value select * from json_populate_record(null::public.tienquyet, '{"ma_hp":"COMP2002","ma_hp_tien_quyet":"COMP1001","loai_rang_buoc":"TienQuyet"}');
+insert into public.tienquyet overriding system value select * from json_populate_record(null::public.tienquyet, '{"ma_hp":"COMP2003","ma_hp_tien_quyet":"COMP2002","loai_rang_buoc":"HocTruoc"}');
+insert into public.dotdangky overriding system value select * from json_populate_record(null::public.dotdangky, '{"ma_dot":"DOT01","ten_dot":"Đợt đăng ký học kỳ 1","hoc_ky":"HK1","nam_hoc":"2026-2027","thoi_diem_mo":"2026-10-30T03:03:30.75281","thoi_diem_dong":"2026-11-07T03:03:30.75281","nguong_huy_lop":15}');
+insert into public.dotdangky overriding system value select * from json_populate_record(null::public.dotdangky, '{"ma_dot":"DOT00","ten_dot":"Đợt đăng ký học kỳ hè","hoc_ky":"HK3","nam_hoc":"2025-2026","thoi_diem_mo":"2026-10-01T03:03:30.75281","thoi_diem_dong":"2026-10-30T03:03:30.75281","nguong_huy_lop":15}');
+insert into public.dotdangky overriding system value select * from json_populate_record(null::public.dotdangky, '{"ma_dot":"DOT02","ten_dot":"Đợt đăng ký học kỳ 2","hoc_ky":"HK2","nam_hoc":"2026-2027","thoi_diem_mo":"2026-11-10T03:03:30.75281","thoi_diem_dong":"2026-11-20T03:03:30.75281","nguong_huy_lop":15}');
+insert into public.dotnhom overriding system value select * from json_populate_record(null::public.dotnhom, '{"ma_dot":"DOT01","ma_nhom":"N01","co_ghi_danh":true}');
+insert into public.dotnhom overriding system value select * from json_populate_record(null::public.dotnhom, '{"ma_dot":"DOT01","ma_nhom":"N02","co_ghi_danh":true}');
+insert into public.dotnhom overriding system value select * from json_populate_record(null::public.dotnhom, '{"ma_dot":"DOT01","ma_nhom":"N03","co_ghi_danh":false}');
+insert into public.dotnhom overriding system value select * from json_populate_record(null::public.dotnhom, '{"ma_dot":"DOT00","ma_nhom":"N01","co_ghi_danh":true}');
+insert into public.dotnhom overriding system value select * from json_populate_record(null::public.dotnhom, '{"ma_dot":"DOT00","ma_nhom":"N02","co_ghi_danh":true}');
+insert into public.dotnhom overriding system value select * from json_populate_record(null::public.dotnhom, '{"ma_dot":"DOT00","ma_nhom":"N03","co_ghi_danh":false}');
+insert into public.dotnhom overriding system value select * from json_populate_record(null::public.dotnhom, '{"ma_dot":"DOT02","ma_nhom":"N01","co_ghi_danh":true}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP100101","suc_chua":40,"trang_thai":"Mo","ma_hp":"COMP1001","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP100102","suc_chua":40,"trang_thai":"Mo","ma_hp":"COMP1001","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP100201","suc_chua":30,"trang_thai":"Mo","ma_hp":"COMP1002","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP100202","suc_chua":30,"trang_thai":"Mo","ma_hp":"COMP1002","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP100301","suc_chua":25,"trang_thai":"Mo","ma_hp":"COMP1003","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP100401","suc_chua":20,"trang_thai":"Mo","ma_hp":"COMP1004","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP100501","suc_chua":25,"trang_thai":"Mo","ma_hp":"COMP1005","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP200101","suc_chua":15,"trang_thai":"Mo","ma_hp":"COMP2001","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26MATH100101","suc_chua":50,"trang_thai":"Mo","ma_hp":"MATH1001","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26MATH100201","suc_chua":40,"trang_thai":"Mo","ma_hp":"MATH1002","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP200201","suc_chua":30,"trang_thai":"Mo","ma_hp":"COMP2002","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"26COMP200301","suc_chua":6,"trang_thai":"Mo","ma_hp":"COMP2003","ma_dot":"DOT01"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"25MATH100101","suc_chua":40,"trang_thai":"Mo","ma_hp":"MATH1001","ma_dot":"DOT00"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"27COMP100101","suc_chua":40,"trang_thai":"Mo","ma_hp":"COMP1001","ma_dot":"DOT02"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"25COMP100101","suc_chua":30,"trang_thai":"BiHuy","ma_hp":"COMP1001","ma_dot":"DOT00"}');
+insert into public.lophocphan overriding system value select * from json_populate_record(null::public.lophocphan, '{"ma_lop":"25COMP100201","suc_chua":20,"trang_thai":"BiHuy","ma_hp":"COMP1002","ma_dot":"DOT00"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":1,"thu":2,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.A101","giang_vien":"TS. Nguyễn Văn An","ma_lop":"26COMP100101"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":2,"thu":3,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.A102","giang_vien":"TS. Nguyễn Văn An","ma_lop":"26COMP100102"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":3,"thu":2,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.B201","giang_vien":"TS. Trần Thị Bình","ma_lop":"26COMP100201"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":4,"thu":4,"tiet_bat_dau":5,"tiet_ket_thuc":7,"phong_hoc":"P.B202","giang_vien":"TS. Trần Thị Bình","ma_lop":"26COMP100202"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":5,"thu":3,"tiet_bat_dau":5,"tiet_ket_thuc":7,"phong_hoc":"P.C301","giang_vien":"TS. Lê Quang Cường","ma_lop":"26COMP100301"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":6,"thu":5,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.C302","giang_vien":"TS. Lê Quang Cường","ma_lop":"26COMP100401"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":7,"thu":6,"tiet_bat_dau":5,"tiet_ket_thuc":7,"phong_hoc":"P.A103","giang_vien":"TS. Phạm Thu Dung","ma_lop":"26COMP100501"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":8,"thu":7,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.D401","giang_vien":"TS. Phạm Thu Dung","ma_lop":"26COMP200101"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":9,"thu":2,"tiet_bat_dau":5,"tiet_ket_thuc":7,"phong_hoc":"P.A104","giang_vien":"TS. Hoàng Minh Đức","ma_lop":"26MATH100101"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":10,"thu":4,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.A105","giang_vien":"TS. Hoàng Minh Đức","ma_lop":"26MATH100201"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":11,"thu":5,"tiet_bat_dau":5,"tiet_ket_thuc":7,"phong_hoc":"P.B203","giang_vien":"TS. Vũ Thị Hoa","ma_lop":"26COMP200201"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":12,"thu":6,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.C303","giang_vien":"TS. Vũ Thị Hoa","ma_lop":"26COMP200301"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":13,"thu":2,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.A101","giang_vien":"TS. Nguyễn Văn An","ma_lop":"25COMP100101"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":14,"thu":3,"tiet_bat_dau":5,"tiet_ket_thuc":7,"phong_hoc":"P.A102","giang_vien":"TS. Nguyễn Văn An","ma_lop":"25MATH100101"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":15,"thu":4,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.B201","giang_vien":"TS. Trần Thị Bình","ma_lop":"25COMP100201"}');
+insert into public.lichhoc overriding system value select * from json_populate_record(null::public.lichhoc, '{"ma_buoi":16,"thu":2,"tiet_bat_dau":2,"tiet_ket_thuc":4,"phong_hoc":"P.A101","giang_vien":"TS. Nguyễn Văn An","ma_lop":"27COMP100101"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.001","ma_hp":"COMP1001","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.001","ma_hp":"COMP1002","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.002","ma_hp":"COMP1001","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.003","ma_hp":"COMP1002","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.004","ma_hp":"COMP2001","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.006","ma_hp":"COMP1002","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.006","ma_hp":"COMP1003","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.007","ma_hp":"COMP2001","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.008","ma_hp":"COMP2003","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.009","ma_hp":"COMP1003","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.009","ma_hp":"COMP1004","ma_dot":"DOT01","thoi_diem":"2026-10-31T03:03:30.75281"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.001","ma_hp":"MATH1002","ma_dot":"DOT01","thoi_diem":"2026-10-31T07:40:23.155188"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.001","ma_hp":"COMP2002","ma_dot":"DOT01","thoi_diem":"2026-10-31T07:40:27.992156"}');
+insert into public.ghidanhhocphan overriding system value select * from json_populate_record(null::public.ghidanhhocphan, '{"ma_sv":"50.01.001.001","ma_hp":"MATH1001","ma_dot":"DOT01","thoi_diem":"2026-11-01T12:26:10.293287"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":2,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.002","ma_lop":"26COMP100102"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":3,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.003","ma_lop":"26MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":5,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.012","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":6,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.013","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":7,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.014","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":8,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.015","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":9,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.016","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":10,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.017","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":11,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.018","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":12,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.019","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":13,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.020","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":14,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.021","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":15,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.022","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":16,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.023","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":17,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.024","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":18,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.025","ma_lop":"26COMP200101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":19,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.011","ma_lop":"26COMP200301"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":20,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.012","ma_lop":"26COMP200301"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":21,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.013","ma_lop":"26COMP200301"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":22,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.014","ma_lop":"26COMP200301"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":23,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.015","ma_lop":"26COMP200301"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":27,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.011","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":28,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.012","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":29,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.013","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":30,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.014","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":31,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.015","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":32,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.016","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":33,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.017","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":34,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.018","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":35,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.019","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":36,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.020","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":37,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.021","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":38,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.022","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":39,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.023","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":40,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.024","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":41,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"HieuLuc","ma_sv":"50.01.001.025","ma_lop":"25MATH100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":1,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"DaHuy","ma_sv":"50.01.001.001","ma_lop":"26COMP100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":24,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"LopBiHuy","ma_sv":"50.01.001.001","ma_lop":"25COMP100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":25,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"LopBiHuy","ma_sv":"50.01.001.002","ma_lop":"25COMP100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":26,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"LopBiHuy","ma_sv":"50.01.001.003","ma_lop":"25COMP100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":42,"thoi_diem_dang_ky":"2026-10-31T09:47:23.730877","trang_thai":"HieuLuc","ma_sv":"50.01.001.001","ma_lop":"26MATH100201"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":43,"thoi_diem_dang_ky":"2026-10-31T12:30:00.667019","trang_thai":"DaHuy","ma_sv":"50.01.001.001","ma_lop":"26COMP100101"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":44,"thoi_diem_dang_ky":"2026-10-31T13:37:56.319316","trang_thai":"HieuLuc","ma_sv":"50.01.001.001","ma_lop":"26COMP100102"}');
+insert into public.dangky overriding system value select * from json_populate_record(null::public.dangky, '{"ma_dang_ky":4,"thoi_diem_dang_ky":"2026-10-31T03:03:30.75281","trang_thai":"DaHuy","ma_sv":"50.01.001.011","ma_lop":"26COMP200101"}');
+insert into public.danhsachcho overriding system value select * from json_populate_record(null::public.danhsachcho, '{"ma_ds":1,"thoi_diem_vao":"2026-10-31T03:03:30.75281","thu_tu":1,"ma_sv":"50.01.001.004","ma_lop":"26COMP200101"}');
+insert into public.danhsachcho overriding system value select * from json_populate_record(null::public.danhsachcho, '{"ma_ds":2,"thoi_diem_vao":"2026-10-31T03:03:30.75281","thu_tu":2,"ma_sv":"50.01.001.006","ma_lop":"26COMP200101"}');
+insert into public.danhsachcho overriding system value select * from json_populate_record(null::public.danhsachcho, '{"ma_ds":3,"thoi_diem_vao":"2026-10-31T07:51:57.574747","thu_tu":3,"ma_sv":"50.01.001.001","ma_lop":"26COMP200101"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":1,"hoc_ky":"HK1 2024-2025","diem":8.0,"ma_sv":"50.01.001.001","ma_hp":"COMP1001"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":2,"hoc_ky":"HK1 2024-2025","diem":7.0,"ma_sv":"50.01.001.002","ma_hp":"COMP1001"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":3,"hoc_ky":"HK2 2024-2025","diem":7.5,"ma_sv":"50.01.001.002","ma_hp":"COMP1002"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":4,"hoc_ky":"HK1 2024-2025","diem":3.5,"ma_sv":"50.01.001.003","ma_hp":"COMP1001"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":5,"hoc_ky":"HK1 2024-2025","diem":8.0,"ma_sv":"50.01.001.004","ma_hp":"COMP1001"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":6,"hoc_ky":"HK2 2024-2025","diem":8.0,"ma_sv":"50.01.001.004","ma_hp":"COMP1002"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":7,"hoc_ky":"HK1 2024-2025","diem":9.0,"ma_sv":"50.01.001.005","ma_hp":"COMP1001"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":8,"hoc_ky":"HK2 2024-2025","diem":9.0,"ma_sv":"50.01.001.005","ma_hp":"COMP1002"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":9,"hoc_ky":"HK1 2024-2025","diem":8.0,"ma_sv":"50.01.001.006","ma_hp":"COMP1001"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":10,"hoc_ky":"HK1 2024-2025","diem":8.0,"ma_sv":"50.01.001.007","ma_hp":"COMP1001"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":11,"hoc_ky":"HK2 2024-2025","diem":8.0,"ma_sv":"50.01.001.007","ma_hp":"COMP1002"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":12,"hoc_ky":"HK1 2024-2025","diem":8.0,"ma_sv":"50.01.001.008","ma_hp":"COMP2002"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":13,"hoc_ky":"HK1 2024-2025","diem":8.0,"ma_sv":"50.01.001.009","ma_hp":"COMP1001"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":14,"hoc_ky":"HK2 2024-2025","diem":8.0,"ma_sv":"50.01.001.009","ma_hp":"COMP1002"}');
+insert into public.ketquahoctap overriding system value select * from json_populate_record(null::public.ketquahoctap, '{"ma_kq":15,"hoc_ky":"HK2 2024-2025","diem":8.0,"ma_sv":"50.01.001.009","ma_hp":"COMP1003"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":1,"thoi_gian":"2026-10-31T03:03:30.75281","loai_thao_tac":"KhoiTaoDuLieu","ket_qua":"ThanhCong","ly_do":"Nạp dữ liệu ban đầu","ma_tk":1,"ma_sv":null,"ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":2,"thoi_gian":"2026-10-31T07:40:18.900607","loai_thao_tac":"GhiDanh","ket_qua":"ThanhCong","ly_do":"MATH1001","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":3,"thoi_gian":"2026-10-31T07:40:23.155188","loai_thao_tac":"GhiDanh","ket_qua":"ThanhCong","ly_do":"MATH1002","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":4,"thoi_gian":"2026-10-31T07:40:27.992156","loai_thao_tac":"GhiDanh","ket_qua":"ThanhCong","ly_do":"COMP2002","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":5,"thoi_gian":"2026-10-31T07:40:49.826889","loai_thao_tac":"HuyDangKy","ket_qua":"ThanhCong","ly_do":"","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP100101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":6,"thoi_gian":"2026-10-31T07:51:57.574747","loai_thao_tac":"VaoDanhSachCho","ket_qua":"ThanhCong","ly_do":"Vị trí 3","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP200101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":7,"thoi_gian":"2026-10-31T08:00:50.553919","loai_thao_tac":"DangKy","ket_qua":"TuChoi","ly_do":"Bạn đã đạt học phần này","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP100101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":8,"thoi_gian":"2026-10-31T08:10:04.084312","loai_thao_tac":"XuLySauDot","ket_qua":"ThanhCong","ly_do":"25COMP100101: sĩ số 3 dưới ngưỡng 15","ma_tk":1,"ma_sv":null,"ma_lop":"25COMP100101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":9,"thoi_gian":"2026-10-31T08:10:04.084312","loai_thao_tac":"XuLySauDot","ket_qua":"ThanhCong","ly_do":"25COMP100201: sĩ số 0 dưới ngưỡng 15","ma_tk":1,"ma_sv":null,"ma_lop":"25COMP100201"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, E'{"ma_log":10,"thoi_gian":"2026-10-31T08:10:46.163206","loai_thao_tac":"DangKy","ket_qua":"TuChoi","ly_do":"vì năm cuối\\n: Bạn đã đạt học phần này","ma_tk":1,"ma_sv":"50.01.001.004","ma_lop":"26COMP100101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, E'{"ma_log":11,"thoi_gian":"2026-10-31T08:11:05.837699","loai_thao_tac":"DangKy","ket_qua":"TuChoi","ly_do":"vì năm cuối\\n: Bạn chưa ghi danh học phần này","ma_tk":1,"ma_sv":"50.01.001.014","ma_lop":"26COMP100501"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":12,"thoi_gian":"2026-10-31T09:46:27.907746","loai_thao_tac":"DangKy","ket_qua":"TuChoi","ly_do":"Bạn đã đạt học phần này","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP100101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":13,"thoi_gian":"2026-10-31T09:46:47.599994","loai_thao_tac":"DangKy","ket_qua":"TuChoi","ly_do":"Bạn đã đạt học phần này","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP100101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":14,"thoi_gian":"2026-10-31T09:46:56.759609","loai_thao_tac":"DangKy","ket_qua":"TuChoi","ly_do":"Bạn chưa ghi danh học phần này","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP200301"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":15,"thoi_gian":"2026-10-31T09:47:23.730877","loai_thao_tac":"DangKy","ket_qua":"ThanhCong","ly_do":"","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26MATH100201"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":16,"thoi_gian":"2026-10-31T12:30:00.667019","loai_thao_tac":"DangKy","ket_qua":"ThanhCong","ly_do":"","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP100101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":17,"thoi_gian":"2026-10-31T12:40:26.814045","loai_thao_tac":"HuyDangKy","ket_qua":"ThanhCong","ly_do":"","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP100101"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":18,"thoi_gian":"2026-10-31T13:37:56.319316","loai_thao_tac":"DangKy","ket_qua":"ThanhCong","ly_do":"","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":"26COMP100102"}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":19,"thoi_gian":"2026-11-01T02:00:15.059286","loai_thao_tac":"DoiMatKhau","ket_qua":"ThanhCong","ly_do":"","ma_tk":1,"ma_sv":null,"ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":20,"thoi_gian":"2026-11-01T02:33:26.838836","loai_thao_tac":"DoiMatKhau","ket_qua":"ThanhCong","ly_do":"","ma_tk":2,"ma_sv":null,"ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":21,"thoi_gian":"2026-11-01T12:25:54.060302","loai_thao_tac":"GhiDanh","ket_qua":"ThanhCong","ly_do":"COMP1004","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":22,"thoi_gian":"2026-11-01T12:26:01.679552","loai_thao_tac":"HuyGhiDanh","ket_qua":"ThanhCong","ly_do":"MATH1001","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":23,"thoi_gian":"2026-11-01T12:26:03.616706","loai_thao_tac":"HuyGhiDanh","ket_qua":"ThanhCong","ly_do":"MATH1001","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":24,"thoi_gian":"2026-11-01T12:26:10.293287","loai_thao_tac":"GhiDanh","ket_qua":"ThanhCong","ly_do":"MATH1001","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":null}');
+insert into public.nhatkythaotac overriding system value select * from json_populate_record(null::public.nhatkythaotac, '{"ma_log":25,"thoi_gian":"2026-11-01T12:26:17.607517","loai_thao_tac":"HuyGhiDanh","ket_qua":"ThanhCong","ly_do":"COMP1004","ma_tk":2,"ma_sv":"50.01.001.001","ma_lop":null}');

@@ -50,9 +50,8 @@ function veDangNhap(thongBao = "") {
       website.phien.luuToken(token);
       window.dispatchEvent(new CustomEvent("dang-nhap-thanh-cong"));
     } catch (loi) {
-      website.gui.thongBaoLoi(loi);
       const o = website.gui.$("#txtThongBao");
-      o.textContent = loi.message;
+      o.textContent = website.gui.thongDiepLoi(loi);
       o.hidden = false;
     } finally {
       website.gui.khoaNut(nut, false);

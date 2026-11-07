@@ -156,17 +156,19 @@ async function quanLyLopHocPhan() {
           { ten: "Mã lớp" }, { ten: "Học phần" }, { ten: "Đợt" },
           { ten: "Sĩ số / sức chứa", lop: "num" }, { ten: "Lịch học" },
           { ten: "Trạng thái" }, { ten: "Thao tác", lop: "text-right" }
-        ], loc.map((x) => [
+        ], loc.map((x) => {
+          const mo = x.trangThai === "Mo" || x.trangThai === "Đang mở";
+          return [
           website.gui.esc(x.maLop),
           website.gui.esc(x.tenHp),
           website.gui.esc(x.tenDot),
           `${website.gui.esc(x.siSo)} / ${website.gui.esc(x.sucChua)}`,
           website.gui.esc(website.gui.lichTomTat(x.lich)),
-          const mo = x.trangThai === "Mo" || x.trangThai === "Đang mở";
           `<span class="tag ${mo ? "tag-ok" : "tag-off"}">${website.gui.esc(website.gui.tenTrangThaiLop(x.trangThai))}</span>`,
           `<button type="button" class="btn btn-sm btn-ghost" data-sua="${website.gui.esc(x.maLop)}">Sửa</button>
            <button type="button" class="btn btn-sm btn-ghost" data-huy="${website.gui.esc(x.maLop)}">Hủy lớp</button>`
-        ]));
+          ];
+        }));
         ganNutBangLop();
       };
       const lamMoi = () => {
@@ -269,15 +271,20 @@ async function nhapLop() {
     gan() {
       const docXlsx = async (file) => {
         if (typeof XLSX === "undefined") {
-          throw new Error("Chưa tải được thư viện đọc file XLSX");
+          throw new Error("Chưa tải được công cụ đọc tệp Excel. Hãy thử tải lại trang hoặc lưu tệp thành CSV UTF-8 rồi nhập lại.");
         }
-        const duLieu = new Uint8Array(await file.arrayBuffer());
-        const sach = XLSX.read(duLieu, { type: "array" });
-        const trang = sach.Sheets[sach.SheetNames[0]];
-        if (!trang) {
-          throw new Error("File XLSX không có trang tính nào");
+        try {
+          const duLieu = new Uint8Array(await file.arrayBuffer());
+          const sach = XLSX.read(duLieu, { type: "array" });
+          const trang = sach.Sheets[sach.SheetNames[0]];
+          if (!trang) {
+            throw new Error("Tệp Excel không có trang tính để nhập. Hãy kiểm tra lại tệp hoặc lưu thành CSV UTF-8.");
+          }
+          return XLSX.utils.sheet_to_csv(trang);
+        } catch (loi) {
+          if (loi.message.startsWith("Tệp Excel không có trang tính")) throw loi;
+          throw new Error("Không đọc được tệp Excel. Hãy kiểm tra tệp còn nguyên vẹn hoặc lưu lại thành CSV UTF-8 rồi thử lại.");
         }
-        return XLSX.utils.sheet_to_csv(trang);
       };
       website.gui.$("#txtFileLop").addEventListener("change", async (suKien) => {
         const file = suKien.target.files[0];
@@ -287,9 +294,14 @@ async function nhapLop() {
           suKien.target.value = "";
           return;
         }
-        tenFile = file.name;
-        noiDungFile = /\.(xlsx|xls)$/i.test(file.name) ? await docXlsx(file) : await file.text();
-        website.gui.$("#txtNoiDungFile").value = noiDungFile;
+        try {
+          tenFile = file.name;
+          noiDungFile = /\.(xlsx|xls)$/i.test(file.name) ? await docXlsx(file) : await file.text();
+          website.gui.$("#txtNoiDungFile").value = noiDungFile;
+        } catch (loi) {
+          website.gui.thongBaoLoi(loi);
+          suKien.target.value = "";
+        }
       });
       website.gui.$("#btnXemTruoc").addEventListener("click", () => {
         noiDungFile = website.gui.$("#txtNoiDungFile").value;

@@ -56,10 +56,15 @@ async function goiRpc(tenHam, thamSo = {}) {
       body: JSON.stringify(thamSo)
     });
   } catch {
-    throw new LoiNghiepVu("Không kết nối được cơ sở dữ liệu");
+    throw new LoiNghiepVu("Không thể kết nối đến hệ thống đăng ký. Hãy kiểm tra kết nối mạng rồi thử lại.");
   }
 
-  const noiDung = await phanHoi.text();
+  let noiDung;
+  try {
+    noiDung = await phanHoi.text();
+  } catch {
+    throw new LoiNghiepVu("Không nhận được phản hồi từ hệ thống đăng ký. Hãy thử lại sau ít phút.");
+  }
   let duLieu = null;
   if (noiDung) {
     try {
@@ -74,6 +79,9 @@ async function goiRpc(tenHam, thamSo = {}) {
     if (thongBao.includes("Phiên đăng nhập đã hết hạn")) {
       xoaToken();
       throw new LoiPhien();
+    }
+    if (phanHoi.status >= 500) {
+      throw new LoiNghiepVu("Hệ thống đăng ký đang gặp sự cố. Vui lòng thử lại sau ít phút.");
     }
     throw new LoiNghiepVu(thongBao);
   }
