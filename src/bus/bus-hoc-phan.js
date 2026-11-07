@@ -24,8 +24,8 @@ class BusHocPhan {
     if (!String(duLieu.ten_hp || "").trim()) {
       throw new website.phien.LoiNghiepVu("Vui lòng nhập tên học phần");
     }
-    if (Number(duLieu.so_tin_chi) <= 0) {
-      throw new website.phien.LoiNghiepVu("Số tín chỉ phải lớn hơn 0");
+    if (!/^[1-9][0-9]{0,2}$/.test(String(duLieu.so_tin_chi ?? ""))) {
+      throw new website.phien.LoiNghiepVu("Số tín chỉ phải là số nguyên lớn hơn 0");
     }
     for (const mon of duLieu.tien_quyet || []) {
       this.kiemTraMaHp(mon.ma_hp_tien_quyet);

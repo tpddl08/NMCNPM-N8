@@ -21,8 +21,8 @@ function dongBuoi(buoi, chiSo) {
           ${[2, 3, 4, 5, 6, 7, 8].map((t) => `<option value="${t}" ${Number(buoi.thu) === t ? "selected" : ""}>${website.gui.tenThu(t)}</option>`).join("")}
         </select>
       </td>
-      <td><input class="input input-sm" type="number" min="1" max="15" data-bat-dau="${chiSo}" value="${website.gui.esc(buoi.tiet_bat_dau || 1)}"></td>
-      <td><input class="input input-sm" type="number" min="1" max="15" data-ket-thuc="${chiSo}" value="${website.gui.esc(buoi.tiet_ket_thuc || 3)}"></td>
+      <td><input class="input input-sm" type="number" min="1" max="12" data-bat-dau="${chiSo}" value="${website.gui.esc(buoi.tiet_bat_dau || 1)}"></td>
+      <td><input class="input input-sm" type="number" min="1" max="12" data-ket-thuc="${chiSo}" value="${website.gui.esc(buoi.tiet_ket_thuc || 3)}"></td>
       <td><input class="input input-sm" type="text" maxlength="30" data-phong="${chiSo}" value="${website.gui.esc(buoi.phong_hoc || "")}"></td>
       <td><input class="input input-sm" type="text" maxlength="100" data-giang-vien="${chiSo}" value="${website.gui.esc(buoi.giang_vien || "")}"></td>
       <td class="text-right"><button type="button" class="btn btn-sm btn-ghost" data-bo-buoi="${chiSo}">Bỏ</button></td>

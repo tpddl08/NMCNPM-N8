@@ -4,7 +4,7 @@ website.bus = website.bus || {};
 (function () {
   "use strict";
 
-const MA_LOP_HOP_LE = /^[0-9]{2}(COMP|MATH|EDU|PHYS)(1[0-9]{3}|2[0-9]{3}|3000)[0-9]{2}$/;
+const MA_LOP_HOP_LE = /^[0-9]{2}(COMP|MATH|EDU|PHYS)(1[0-9]{3}|2[0-9]{3}|3000)(0[1-9]|[1-9][0-9])$/;
 const TRANG_THAI_LOP = { MO: "Mo", DONG: "Dong", BI_HUY: "BiHuy" };
 const COT_CSV = [
   "ma_lop", "ma_hp", "ma_dot", "suc_chua", "thu",
@@ -88,6 +88,9 @@ class BusLopHocPhan {
       const ketThuc = Number(buoi.tiet_ket_thuc);
       if (thu < 2 || thu > 8) {
         throw new website.phien.LoiNghiepVu("Thứ phải nằm trong khoảng 2 đến 8");
+      }
+      if (batDau > 12 || ketThuc > 12) {
+        throw new website.phien.LoiNghiepVu("Tiết học phải nằm trong khoảng 1 đến 12");
       }
       if (batDau <= 0 || ketThuc < batDau) {
         throw new website.phien.LoiNghiepVu("Khoảng tiết học không hợp lệ");

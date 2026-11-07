@@ -185,8 +185,9 @@ alter table public.lichhoc add constraint lichhoc_pkey PRIMARY KEY (ma_buoi);
 alter table public.lichhoc add constraint lichhoc_thu_check CHECK (((thu >= 2) AND (thu <= 8)));
 
 alter table public.lichhoc add constraint lichhoc_tiet_bat_dau_check CHECK ((tiet_bat_dau > 0));
+alter table public.lichhoc add constraint lichhoc_tiet_gioi_han CHECK ((((tiet_bat_dau >= 1) AND (tiet_bat_dau <= 12)) AND ((tiet_ket_thuc >= 1) AND (tiet_ket_thuc <= 12))));
 
-alter table public.lophocphan add constraint lophocphan_ma_lop_check CHECK (((ma_lop)::text ~ '^[0-9]{2}(COMP|MATH|EDU|PHYS)(1[0-9]{3}|2[0-9]{3}|3000)[0-9]{2}$'::text));
+alter table public.lophocphan add constraint lophocphan_ma_lop_check CHECK (((ma_lop)::text ~ '^[0-9]{2}(COMP|MATH|EDU|PHYS)(1[0-9]{3}|2[0-9]{3}|3000)(0[1-9]|[1-9][0-9])$'::text));
 
 alter table public.lophocphan add constraint lophocphan_pkey PRIMARY KEY (ma_lop);
 

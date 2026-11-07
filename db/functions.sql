@@ -1321,8 +1321,8 @@ begin
   select * into v_xt from public.xac_thuc_token(p_token);
   perform public._kiem_tra_pdt(v_xt.vai_tro);
 
-  if coalesce((p_du_lieu ->> 'so_tin_chi')::integer, 0) <= 0 then
-    raise exception 'Số tín chỉ phải lớn hơn 0';
+  if coalesce(p_du_lieu ->> 'so_tin_chi', '') !~ '^[1-9][0-9]{0,2}$' then
+    raise exception 'Số tín chỉ phải là số nguyên lớn hơn 0';
   end if;
 
   insert into public.hocphan (ma_hp, ten_hp, so_tin_chi)
