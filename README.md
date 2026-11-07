@@ -22,7 +22,7 @@ NMCNPM-N8/
 
 
 Luồng phụ thuộc:
-GUI  ->  BUS  ->  DAO ->  Supabase(PostgreSQL)
+GUI  ->  BUS  ->  DAO -> DTO -> Supabase(PostgreSQL)
 
 
 - GUI không gọi DAO trực tiếp.
@@ -33,9 +33,9 @@ GUI  ->  BUS  ->  DAO ->  Supabase(PostgreSQL)
 
 ## 2. Chạy giao diện
 
-Mở trực tiếp tệp `index.html` bằng trình duyệt. Ứng dụng dùng script chạy theo một namespace toàn cục duy nhất `window.website`, cài extension Live Server. Sau khi cập nhật mã nên nhấn Ctrl+F5 để hiển thị bản mới nhất
+Mở trực tiếp tệp `index.html` bằng trình duyệt. Ứng dụng dùng script chạy theo một namespace toàn cục duy nhất `window.website`, cài extension Live Server. Sau khi cập nhật code nên tải lại trang để hiển thị bản mới nhất
 
-Khi `src/common/cau-hinh.js` còn giá trị `__DIEN_...`, ứng dụng hiển thị thông báo **“Chưa cấu hình kết nối cơ sở dữ liệu”**, khóa biểu mẫu đăng nhập và không gửi bất kỳ yêu cầu nào đến dịch vụ cơ sở dữ liệu.
+Khi `src/common/cau-hinh.js` còn giá trị `__DIEN_...`, trang web hiển thị thông báo **“Chưa cấu hình kết nối cơ sở dữ liệu”**, khóa biểu mẫu đăng nhập và không gửi bất kỳ yêu cầu nào đến dịch vụ cơ sở dữ liệu.
 
 ---
 
@@ -51,10 +51,10 @@ Trong SQL Editor của Supabase, chạy lần lượt:
 
 
 ### Bước 2 - Điền khóa ký token
-Mở `db/khoa-ky.sql`, thay giá trị giữ chỗ điền khóa bằng một chuỗi bí mật dài (tối thiểu 32 ký tự), rồi chạy lại. File dùng dạng `alter database ... set` bên trong một khối `do` nên không cần tên cơ sở dữ liệu cụ thể.
+Khóa ký token được đọc từ cấu hình app.bi_mat_token của cơ sở dữ liệu thông qua hàm public._khoa_ky() trong db/functions.sql. Hàm sẽ báo lỗi nếu chưa có khóa hoặc khóa ngắn hơn 32 ký tự. Đặt khóa bằng một chuỗi bí mật dài và ngẫu nhiên, chạy trong SQL Editor của Supabase:
 
 ```sql
-alter database <ten-co-so-du-lieu> set app.bi_mat_token = 'thay-bang-khoa-bi-mat-that-dai-va-ngau-nhien';
+alter database postgres set app.bi_mat_token = '<chuỗi-bí-mật-tối-thiểu-32-ký-tự>';
 ```
 
 `alter database` chỉ có hiệu lực với kết nối mở sau lệnh này, nên sau khi chạy xong hãy tải lại trang đăng nhập.
@@ -75,9 +75,7 @@ Sau khi hoàn tất ba bước, tải lại trang đăng nhập.
 
 | Vai trò | Tên đăng nhập | Mật khẩu |
 |---|---|---|
-| Phòng đào tạo | `pdt.n8` | `pdt12345` |
-| Sinh viên | `50.01.001.001` | `sv123456` |
-| Sinh viên | `50.01.001.002` … `48.01.001.026` | `Sv@12345` |
-
-
+| Phòng đào tạo | pdt.n8 | pdt12345 |
+| Sinh viên | 50.01.001.001 | sv123456 |
+| Sinh viên | 50.01.001.002 … 50.01.001.026 | Sv@12345 |
 
